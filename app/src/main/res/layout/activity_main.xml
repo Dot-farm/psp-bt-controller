@@ -5,7 +5,6 @@
     android:background="#121212"
     android:padding="16dp">
 
-    <!-- Top Shoulder Buttons & Connect -->
     <Button
         android:id="@+id/btnL"
         android:layout_width="140dp"
@@ -22,7 +21,7 @@
         android:layout_centerHorizontal="true"
         android:layout_alignParentTop="true"
         android:backgroundTint="#1E88E5"
-        android:text="Make Discoverable (Connect BT)" />
+        android:text="Connect Bluetooth" />
 
     <Button
         android:id="@+id/btnR"
@@ -33,7 +32,30 @@
         android:text="R"
         android:textSize="18sp" />
 
-    <!-- D-Pad (Left Side) -->
+    <EditText
+        android:id="@+id/inputPcIp"
+        android:layout_width="190dp"
+        android:layout_height="44dp"
+        android:layout_below="@id/btnConnect"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="2dp"
+        android:backgroundTint="#90CAF9"
+        android:hint="Laptop IPv4 address"
+        android:inputType="numberDecimal"
+        android:singleLine="true"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#BBBBBB"
+        android:textSize="13sp" />
+
+    <Button
+        android:id="@+id/btnConnectPc"
+        android:layout_width="190dp"
+        android:layout_height="42dp"
+        android:layout_below="@id/inputPcIp"
+        android:layout_centerHorizontal="true"
+        android:text="Connect to PC"
+        android:textSize="12sp" />
+
     <GridLayout
         android:id="@+id/dpadGrid"
         android:layout_width="wrap_content"
@@ -57,7 +79,6 @@
         <Space android:layout_width="55dp" android:layout_height="55dp" />
     </GridLayout>
 
-    <!-- Analog Stick (Bottom Left, PSP style) -->
     <com.example.pspcontroller.AnalogStickView
         android:id="@+id/analogStick"
         android:layout_width="130dp"
@@ -66,7 +87,6 @@
         android:layout_toEndOf="@id/dpadGrid"
         android:layout_marginStart="20dp" />
 
-    <!-- Select & Start (Bottom Center) -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -90,7 +110,6 @@
             android:textSize="11sp" />
     </LinearLayout>
 
-    <!-- Action Buttons: Triangle, Circle, Cross, Square (Right Side) -->
     <GridLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
