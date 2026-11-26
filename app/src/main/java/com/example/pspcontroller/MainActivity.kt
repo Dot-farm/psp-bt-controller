@@ -37,6 +37,7 @@ class MainActivity : AppCompatActivity() {
     private val pcExecutor = Executors.newSingleThreadExecutor()
     @Volatile private var pcConnected = false
     @Volatile private var pcAddress: InetAddress? = null
+    @Volatile private var pcPin: String? = null
     private var pcSocket: DatagramSocket? = null // accessed only on pcExecutor
     private val pcPort = 26760
     private val pcHeartbeatHandler = Handler(Looper.getMainLooper())
@@ -233,6 +234,12 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        val pin = findViewById<EditText>(R.id.inputPcPin).text.toString().trim()
+        if (pin.length != 6 || pin.any { !it.isDigit() }) {
+            Toast.makeText(this, "Enter the 6-digit PIN shown on your laptop", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         val address = try {
             InetAddress.getByName(ipText)
         } catch (_: Exception) {
@@ -241,6 +248,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         pcAddress = address
+        pcPin = pin
         pcConnected = true
         pcHeartbeatHandler.removeCallbacks(pcHeartbeat)
         pcHeartbeatHandler.postDelayed(pcHeartbeat, 500)
@@ -253,6 +261,7 @@ class MainActivity : AppCompatActivity() {
                     JSONObject()
                         .put("type", "hello")
                         .put("app", "PSP BT Gamepad")
+                        .put("pin", pin)
                         .toString(),
                     address
                 )
@@ -277,16 +286,20 @@ class MainActivity : AppCompatActivity() {
     private fun disconnectPc() {
         pcConnected = false
         pcHeartbeatHandler.removeCallbacks(pcHeartbeat)
+        val address = pcAddress
+        val pin = pcPin
+        pcAddress = null
+        pcPin = null
         pcExecutor.execute {
             try {
-                val address = pcAddress
-                if (address != null && pcSocket != null && pcSocket?.isClosed == false) {
+                if (address != null && pin != null && pcSocket != null && pcSocket?.isClosed == false) {
                     sendPcPacket(
                         JSONObject()
                             .put("type", "state")
                             .put("buttons", 0)
                             .put("x", 0)
                             .put("y", 0)
+                            .put("pin", pin)
                             .toString(),
                         address
                     )
@@ -298,7 +311,6 @@ class MainActivity : AppCompatActivity() {
                 pcSocket = null
             }
         }
-        pcAddress = null
         findViewById<Button>(R.id.btnConnectPc).text = "Connect to PC"
         Toast.makeText(this, "PC connection stopped", Toast.LENGTH_SHORT).show()
     }
@@ -306,11 +318,13 @@ class MainActivity : AppCompatActivity() {
     private fun sendPcState() {
         if (!pcConnected) return
         val address = pcAddress ?: return
+        val pin = pcPin ?: return
         val packet = JSONObject()
             .put("type", "state")
             .put("buttons", buttonState)
             .put("x", analogX.toInt())
             .put("y", analogY.toInt())
+            .put("pin", pin)
             .toString()
 
         pcExecutor.execute {
