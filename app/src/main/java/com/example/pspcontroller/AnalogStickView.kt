@@ -70,18 +70,6 @@ class AnalogStickView @JvmOverloads constructor(
         travelRadius = baseRadius - stickRadius * 0.55f
         stickX = centerX
         stickY = centerY
-        thumbPaint.shader = RadialGradient(
-            centerX - stickRadius * 0.22f,
-            centerY - stickRadius * 0.28f,
-            stickRadius * 1.55f,
-            intArrayOf(
-                Color.parseColor("#B5F7E9"),
-                Color.parseColor("#62CDBD"),
-                Color.parseColor("#287E82")
-            ),
-            null,
-            Shader.TileMode.CLAMP
-        )
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -96,6 +84,19 @@ class AnalogStickView @JvmOverloads constructor(
         canvas.drawLine(centerX - guideReach, centerY, centerX + guideReach, centerY, guidePaint)
         canvas.drawLine(centerX, centerY - guideReach, centerX, centerY + guideReach, guidePaint)
 
+        // Reposition the lighting with the thumb so it remains consistent as it moves.
+        thumbPaint.shader = RadialGradient(
+            stickX - stickRadius * 0.22f,
+            stickY - stickRadius * 0.28f,
+            stickRadius * 1.55f,
+            intArrayOf(
+                Color.parseColor("#B5F7E9"),
+                Color.parseColor("#62CDBD"),
+                Color.parseColor("#287E82")
+            ),
+            null,
+            Shader.TileMode.CLAMP
+        )
         canvas.drawCircle(stickX, stickY, stickRadius, thumbPaint)
         canvas.drawCircle(stickX, stickY, stickRadius, thumbEdgePaint)
         canvas.drawCircle(
