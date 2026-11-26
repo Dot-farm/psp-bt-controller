@@ -31,8 +31,8 @@
 
     <Button
         android:id="@+id/btnL"
-        android:layout_width="112dp"
-        android:layout_height="42dp"
+        android:layout_width="124dp"
+        android:layout_height="44dp"
         android:layout_alignParentStart="true"
         android:layout_alignParentTop="true"
         android:background="@drawable/control_button"
@@ -46,8 +46,8 @@
 
     <Button
         android:id="@+id/btnR"
-        android:layout_width="112dp"
-        android:layout_height="42dp"
+        android:layout_width="124dp"
+        android:layout_height="44dp"
         android:layout_alignParentEnd="true"
         android:layout_alignParentTop="true"
         android:background="@drawable/control_button"
@@ -151,27 +151,28 @@
         android:columnCount="3"
         android:rowCount="3">
 
-        <Space android:layout_width="49dp" android:layout_height="49dp" />
-        <Button android:id="@+id/btnUp" android:layout_width="49dp" android:layout_height="49dp" android:text="▲" android:textSize="17sp" android:textColor="#EAF0F8" android:background="@drawable/control_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
-        <Space android:layout_width="49dp" android:layout_height="49dp" />
+        <Space android:layout_width="54dp" android:layout_height="54dp" />
+        <Button android:id="@+id/btnUp" android:layout_width="54dp" android:layout_height="54dp" android:text="▲" android:textSize="19sp" android:textColor="#EAF0F8" android:background="@drawable/control_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
+        <Space android:layout_width="54dp" android:layout_height="54dp" />
 
-        <Button android:id="@+id/btnLeft" android:layout_width="49dp" android:layout_height="49dp" android:text="◀" android:textSize="17sp" android:textColor="#EAF0F8" android:background="@drawable/control_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
-        <View android:layout_width="49dp" android:layout_height="49dp" android:background="@drawable/dpad_center" />
-        <Button android:id="@+id/btnRight" android:layout_width="49dp" android:layout_height="49dp" android:text="▶" android:textSize="17sp" android:textColor="#EAF0F8" android:background="@drawable/control_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
+        <Button android:id="@+id/btnLeft" android:layout_width="54dp" android:layout_height="54dp" android:text="◀" android:textSize="19sp" android:textColor="#EAF0F8" android:background="@drawable/control_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
+        <View android:layout_width="54dp" android:layout_height="54dp" android:background="@drawable/dpad_center" />
+        <Button android:id="@+id/btnRight" android:layout_width="54dp" android:layout_height="54dp" android:text="▶" android:textSize="19sp" android:textColor="#EAF0F8" android:background="@drawable/control_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
 
-        <Space android:layout_width="49dp" android:layout_height="49dp" />
-        <Button android:id="@+id/btnDown" android:layout_width="49dp" android:layout_height="49dp" android:text="▼" android:textSize="17sp" android:textColor="#EAF0F8" android:background="@drawable/control_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
-        <Space android:layout_width="49dp" android:layout_height="49dp" />
+        <Space android:layout_width="54dp" android:layout_height="54dp" />
+        <Button android:id="@+id/btnDown" android:layout_width="54dp" android:layout_height="54dp" android:text="▼" android:textSize="19sp" android:textColor="#EAF0F8" android:background="@drawable/control_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
+        <Space android:layout_width="54dp" android:layout_height="54dp" />
     </GridLayout>
 
     <com.example.pspcontroller.AnalogStickView
         android:id="@+id/analogStick"
-        android:layout_width="116dp"
-        android:layout_height="116dp"
+        android:layout_width="132dp"
+        android:layout_height="132dp"
         android:layout_alignParentBottom="true"
         android:layout_toStartOf="@id/dpadGrid"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="2dp" />
+        android:layout_marginEnd="12dp"
+        android:layout_marginBottom="0dp"
+        android:contentDescription="Left analog stick. Drag in any direction and release to return to center." />
 
     <LinearLayout
         android:layout_width="wrap_content"
@@ -183,8 +184,8 @@
 
         <Button
             android:id="@+id/btnSelect"
-            android:layout_width="76dp"
-            android:layout_height="34dp"
+            android:layout_width="82dp"
+            android:layout_height="36dp"
             android:layout_marginEnd="9dp"
             android:background="@drawable/control_button"
             android:text="SELECT"
@@ -196,8 +197,8 @@
 
         <Button
             android:id="@+id/btnStart"
-            android:layout_width="76dp"
-            android:layout_height="34dp"
+            android:layout_width="82dp"
+            android:layout_height="36dp"
             android:background="@drawable/control_button"
             android:text="START"
             android:textColor="#D5DEEA"
@@ -217,17 +218,17 @@
         android:columnCount="3"
         android:rowCount="3">
 
-        <Space android:layout_width="56dp" android:layout_height="56dp" />
-        <Button android:id="@+id/btnTriangle" android:layout_width="56dp" android:layout_height="56dp" android:text="△" android:textSize="22sp" android:textColor="#71D8C5" android:background="@drawable/action_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
-        <Space android:layout_width="56dp" android:layout_height="56dp" />
+        <Space android:layout_width="60dp" android:layout_height="60dp" />
+        <Button android:id="@+id/btnTriangle" android:layout_width="60dp" android:layout_height="60dp" android:text="△" android:textSize="24sp" android:textColor="#71D8C5" android:background="@drawable/action_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
+        <Space android:layout_width="60dp" android:layout_height="60dp" />
 
-        <Button android:id="@+id/btnSquare" android:layout_width="56dp" android:layout_height="56dp" android:text="□" android:textSize="22sp" android:textColor="#C19BFF" android:background="@drawable/action_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
-        <Space android:layout_width="56dp" android:layout_height="56dp" />
-        <Button android:id="@+id/btnCircle" android:layout_width="56dp" android:layout_height="56dp" android:text="○" android:textSize="22sp" android:textColor="#FF879B" android:background="@drawable/action_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
+        <Button android:id="@+id/btnSquare" android:layout_width="60dp" android:layout_height="60dp" android:text="□" android:textSize="24sp" android:textColor="#C19BFF" android:background="@drawable/action_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
+        <Space android:layout_width="60dp" android:layout_height="60dp" />
+        <Button android:id="@+id/btnCircle" android:layout_width="60dp" android:layout_height="60dp" android:text="○" android:textSize="24sp" android:textColor="#FF879B" android:background="@drawable/action_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
 
-        <Space android:layout_width="56dp" android:layout_height="56dp" />
-        <Button android:id="@+id/btnCross" android:layout_width="56dp" android:layout_height="56dp" android:text="✕" android:textSize="22sp" android:textColor="#79B8FF" android:background="@drawable/action_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
-        <Space android:layout_width="56dp" android:layout_height="56dp" />
+        <Space android:layout_width="60dp" android:layout_height="60dp" />
+        <Button android:id="@+id/btnCross" android:layout_width="60dp" android:layout_height="60dp" android:text="✕" android:textSize="24sp" android:textColor="#79B8FF" android:background="@drawable/action_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
+        <Space android:layout_width="60dp" android:layout_height="60dp" />
     </GridLayout>
 
 </RelativeLayout>
