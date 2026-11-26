@@ -1,141 +1,90 @@
 # PSP BT Gamepad
 
-Turn an Android phone into a wireless game controller for a Windows PC or a supported Bluetooth host. The project currently provides two connection modes:
+Turn an Android phone into a wireless game controller for a Windows PC or another compatible Bluetooth host.
 
-- **Windows over Wi-Fi:** the Android app sends button and analog-stick state over your local network. A small Python receiver on Windows exposes it as a virtual Xbox 360 controller, so games that support XInput can use it.
-- **Bluetooth HID:** the Android app can register as a Bluetooth HID gamepad on Android devices and hosts that support the required Bluetooth HID Device profile.
+This project has two separate ways to send controller input:
 
-The Android app is designed in landscape orientation. The face buttons are on the **left**, the D-pad is on the **right**, and the analog stick sits between the two control groups.
+1. **Windows Wi-Fi mode:** the Android app sends button and joystick information to a Python program running on your Windows PC. The PC program creates a virtual Xbox 360 controller, which games and emulators such as PPSSPP can detect.
+2. **Bluetooth HID mode:** the Android app can act as a Bluetooth HID gamepad when the Android device supports the required HID Device profile. This mode does not use the Windows Python receiver.
 
-> **Project status:** prototype / active development. The Wi-Fi controller has been exercised with PPSSPP, but compatibility, latency and button mapping can vary by device and game. Please test before relying on it.
+> **Project status:** Prototype / active development. The Windows Wi-Fi mode has been tested with PPSSPP, but compatibility, latency and button mapping can vary by device, network and game. A successful build does not guarantee that every connection mode works on every Android phone.
+
+## Contents
+
+- [How it works](#how-it-works)
+- [Features](#features)
+- [Controller layout and controls](#controller-layout-and-controls)
+- [Choose a connection mode](#choose-a-connection-mode)
+- [Requirements](#requirements)
+- [Build and install the Android app](#build-and-install-the-android-app)
+- [Set up the Windows companion](#set-up-the-windows-companion)
+- [Connect to PPSSPP](#connect-to-ppsspp)
+- [Customise the on-screen layout](#customise-the-on-screen-layout)
+- [Bluetooth HID mode](#bluetooth-hid-mode)
+- [Troubleshooting](#troubleshooting)
+- [Security, limitations and project status](#security-limitations-and-project-status)
+- [Development checks](#development-checks)
+
+## How it works
+
+### Windows Wi-Fi mode
+
+The phone does not directly pretend to be an Xbox controller. Instead, it sends the state of its controls to a small receiver program on the PC. That receiver translates the information into virtual Xbox 360 controller input.
+
+```text
+Android phone
+  PSP BT Gamepad app
+  Reads buttons and analog stick
+          |
+          | Local Wi-Fi network
+          | UDP messages to port 26760
+          v
+Windows PC
+  Python receiver (receiver.py)
+  Checks the pairing PIN and reads input
+          |
+          v
+  vgamepad + ViGEmBus
+  Creates a virtual Xbox 360 controller
+          |
+          v
+  PPSSPP or another compatible game
+  Reads the virtual controller input
+```
+
+In this setup:
+
+- **Android app:** displays the controller and tracks which buttons or directions are being pressed.
+- **Wi-Fi:** carries the controller information between the phone and PC. Both devices need to be on the same reachable local network.
+- **UDP:** is the network communication method used by the receiver. The project uses UDP port **26760**.
+- **Python receiver:** runs on Windows, checks incoming messages and translates them into controller actions.
+- **vgamepad:** is the Python package used to send virtual Xbox 360 controller input.
+- **ViGEmBus:** is the Windows virtual gamepad driver required by vgamepad to expose the virtual controller to other programs.
+- **PPSSPP:** or another compatible application reads the virtual controller as an input device.
+
+The receiver prints a six-digit PIN when it starts. The Android app must send the current PIN when connecting. This is a basic local-network pairing check; it is not encryption or strong authentication.
+
+### Bluetooth HID mode
+
+Bluetooth HID is a separate mode. When supported by the Android phone, the app can present itself as a Bluetooth gamepad to a compatible host. It does not need the Windows Python receiver, UDP port 26760, vgamepad or the Windows virtual gamepad driver.
 
 ## Features
 
-- On-screen Cross, Circle, Square and Triangle buttons.
-- L and R shoulder buttons, plus Select and Start.
-- Four-way D-pad and a spring-return analog stick.
-- On-device layout editor: drag each control, resize it, save changes automatically, and restore the default layout.
-- Local Wi-Fi connection to the Windows companion receiver.
-- Six-digit pairing PIN generated when the receiver starts.
+- Landscape Android controller interface.
+- Cross, Circle, Square and Triangle face buttons.
+- L and R shoulder buttons, Select and Start.
+- Four-way D-pad and spring-return analog stick.
+- On-device layout editor to move and resize controls.
+- Automatic saving of the on-screen layout on the phone.
+- Windows companion connection over local Wi-Fi.
+- Six-digit pairing PIN generated when the Windows receiver starts.
 - Virtual Xbox 360 controller output through vgamepad.
 - Separate Bluetooth HID connection option.
 - Android APK build workflow through GitHub Actions.
 
-## Repository layout
+## Controller layout and controls
 
-~~~text
-.
-├── app/
-│   ├── build.gradle
-│   └── src/main/
-│       ├── AndroidManifest.xml
-│       ├── java/com/example/pspcontroller/
-│       │   ├── MainActivity.kt
-│       │   └── AnalogStickView.kt
-│       └── res/
-│           ├── drawable/       # Controller backgrounds and button states
-│           └── layout/         # Landscape controller layout
-├── windows-companion/
-│   ├── receiver.py             # UDP receiver and virtual Xbox gamepad
-│   ├── requirements.txt
-│   └── README.md               # Windows-specific setup
-├── .github/workflows/build.yml # Android build and Python syntax check
-├── build.gradle
-├── settings.gradle
-└── gradle.properties
-~~~
-
-## Requirements
-
-### Android development
-
-- Android Studio with Android SDK Platform 34.
-- JDK 17.
-- Android Gradle Plugin 8.2.2 and Kotlin Android plugin 1.9.22 (declared in the root Gradle build file).
-- A phone running Android 9 (API 28) or newer for the current app minimum SDK.
-- Bluetooth HID Device profile support on the phone if you want to use Bluetooth mode. Not every Android device exposes this profile.
-
-### Windows Wi-Fi companion
-
-- Windows 10 or Windows 11.
-- Python 3.10 or newer (the receiver uses only standard-library networking plus vgamepad).
-- The vgamepad Python package.
-- A compatible ViGEmBus virtual gamepad driver installation. See the driver note below.
-- Phone and PC connected to the same trusted local Wi-Fi network.
-
-## Build the Android app
-
-1. Clone or download this repository.
-2. Open the project root in Android Studio.
-3. Allow Android Studio to sync the Gradle project and install any missing Android SDK components.
-4. Select the app run configuration and build/run it on your Android device.
-
-The repository currently does not include a Gradle wrapper, so use Android Studio's Gradle integration or a locally installed compatible Gradle distribution. The GitHub Actions workflow uses Gradle 8.5 when it needs to generate a wrapper for CI.
-
-To build from a terminal after configuring Gradle and the Android SDK, run:
-
-~~~bash
-gradle assembleDebug
-~~~
-
-The debug APK is normally written to:
-
-~~~text
-app/build/outputs/apk/debug/app-debug.apk
-~~~
-
-### Download a CI-built APK
-
-1. Open the repository's **Actions** tab on GitHub.
-2. Select the latest successful **Build Android APK** workflow run for the branch you want.
-3. Download the **PSP-Controller-APK** artifact.
-4. Extract the artifact and install the APK on your Android phone. Android may ask you to allow installation from the browser or file manager you used.
-
-A successful CI build confirms that the project compiled; it does not prove that Bluetooth HID, Wi-Fi connectivity or every game works on every device.
-
-## Windows Wi-Fi setup
-
-The Windows receiver is in **windows-companion/**. For the full Windows walkthrough, see [windows-companion/README.md](windows-companion/README.md).
-
-### First-time setup
-
-Open Command Prompt or PowerShell in the windows-companion directory:
-
-~~~powershell
-py -m venv .venv
-.venv\Scripts\python.exe -m pip install -r requirements.txt
-~~~
-
-If ViGEmBus is already installed and you need to prevent the package installer from attempting its bundled driver installation, set the environment variable before installing:
-
-~~~cmd
-set VGAMEPAD_SKIP_VIGEMBUS_INSTALL=true
-.venv\Scripts\python.exe -m pip install -r requirements.txt
-~~~
-
-Only use that skip option when a compatible driver is already installed. Do not download drivers from unofficial sites or bypass Windows driver-security controls.
-
-### Start the receiver
-
-From the same windows-companion folder:
-
-~~~cmd
-.venv\Scripts\python.exe receiver.py
-~~~
-
-Or double-click **Start-Controller.bat** in that folder after the first-time setup is complete. Keep the receiver window open while playing. The receiver displays a new six-digit PIN each time it starts.
-
-### Connect the phone
-
-1. Make sure the phone and Windows PC are on the same trusted Wi-Fi network.
-2. On Windows, run ipconfig and find the **IPv4 Address** under the active Wi-Fi adapter. Do not use the Default Gateway address.
-3. In the Android app, enter that IPv4 address and the six-digit PIN shown in the receiver window.
-4. Tap **Connect to PC**. Tap it again to disconnect.
-5. If Windows Firewall prompts you, allow Python on **Private networks** only, if you trust the network.
-
-The receiver listens on UDP port **26760**. The PIN is a basic local-network pairing check, not encrypted authentication. Do not expose this port to the public internet or use the prototype on an untrusted network.
-
-## Controls and button mapping
+The controller is designed for landscape orientation. The face buttons are on the **left**, the D-pad is on the **right**, and the analog stick sits between the two control groups.
 
 | Android control | Bluetooth HID report | Windows virtual Xbox controller |
 |---|---|---|
@@ -150,96 +99,201 @@ The receiver listens on UDP port **26760**. The PIN is a basic local-network pai
 | D-pad directions | Buttons 9–12 | D-pad |
 | Analog stick | X/Y axes | Left analog stick |
 
-The Windows receiver maps the Android screen's downward-positive Y axis to XInput's upward-positive Y axis.
+The Windows receiver converts the Android screen's downward-positive Y direction into the opposite Y direction expected by the virtual Xbox controller.
 
-## Customise the controller layout
+The layout editor changes where controls appear and how large they are on the phone. It does **not** change the button mapping sent to the connected host.
 
-The Android app includes a built-in layout editor:
+## Choose a connection mode
 
-1. Tap **Edit Layout** on the controller screen.
-2. Drag any face button, shoulder button, D-pad direction, Start/Select button or analog stick to reposition it.
-3. Tap a control to select it. Use **−** and **+** in the editor bar to make that control smaller or larger.
-4. Tap **Done** to return to normal play.
-5. Tap **Reset** at any time to restore every control to its original position and size.
+| If you want to… | Use |
+|---|---|
+| Connect the phone to a Windows PC through your local Wi-Fi | Windows Wi-Fi mode |
+| Use the Windows virtual Xbox controller with PPSSPP | Windows Wi-Fi mode |
+| Connect to a compatible host directly over Bluetooth | Bluetooth HID mode |
+| Use Bluetooth HID without running a PC receiver | Bluetooth HID mode |
 
-Layout changes are saved on the phone automatically and remain after closing and reopening the app. Each control can be adjusted independently. The editor changes only the on-screen layout; it does not change the button mapping sent to Bluetooth or the Windows receiver.
+The two modes have different requirements. Follow only the setup instructions for the mode you intend to use.
 
-## Configure PPSSPP
+## Requirements
+
+### Android app
+
+- Android Studio.
+- Android SDK Platform 34.
+- JDK 17.
+- Android Gradle Plugin 8.2.2 and Kotlin Android plugin 1.9.22, as declared in the project build files.
+- Android 9 (API 28) or newer for the current minimum SDK.
+- A physical Android device is recommended for testing touch controls and connectivity.
+- Bluetooth HID Device profile support on the phone if you want to use Bluetooth mode. Not every Android device exposes this profile.
+
+### Windows Wi-Fi mode
+
+- Windows 10 or Windows 11.
+- Python 3.10 or newer.
+- The Python package listed in `windows-companion/requirements.txt` (`vgamepad`).
+- A compatible ViGEmBus virtual gamepad driver installation.
+- Phone and PC connected to the same trusted local Wi-Fi network.
+
+## Build and install the Android app
+
+1. Clone or download this repository.
+2. Open the project root in Android Studio.
+3. Allow Gradle to sync and install any missing Android SDK components.
+4. Select the Android app run configuration.
+5. Connect an Android phone with USB debugging enabled, or use an Android emulator for interface checks.
+6. Build and run the app.
+
+The repository currently does not include a Gradle wrapper. Use Android Studio's Gradle integration or a locally installed compatible Gradle distribution.
+
+To build from a terminal after configuring Gradle and the Android SDK:
+
+```bash
+gradle assembleDebug
+```
+
+The debug APK is normally written to:
+
+```text
+app/build/outputs/apk/debug/app-debug.apk
+```
+
+### Download a CI-built APK
+
+1. Open the repository's **Actions** tab on GitHub.
+2. Select a successful **Build Android APK** workflow run for the branch you want.
+3. Download the **PSP-Controller-APK** artifact.
+4. Extract the artifact and install the APK on your Android phone. Android may ask you to allow installation from the browser or file manager.
+
+A successful CI build confirms that the project compiled. It does not prove that Bluetooth HID, Wi-Fi connectivity or every game works on every device.
+
+## Set up the Windows companion
+
+The Windows receiver is in the `windows-companion/` directory. It listens for controller messages from the Android app and creates virtual Xbox controller input.
+
+For the complete Windows installation and connection walkthrough, see **[Windows companion setup](windows-companion/README.md)**.
+
+Quick overview:
+
+1. Install Python and the required virtual gamepad driver.
+2. Open Command Prompt or PowerShell in `windows-companion/`.
+3. Create a Python virtual environment and install the requirements.
+4. Start `receiver.py`.
+5. Note the PC's active Wi-Fi IPv4 address and the six-digit PIN printed by the receiver.
+6. Enter both values in the Android app and connect.
+
+Keep the receiver terminal open while playing. The detailed guide explains each command and how to troubleshoot connection problems.
+
+## Connect to PPSSPP
+
+This section applies to **Windows Wi-Fi mode**.
 
 1. Start the Windows receiver and connect the Android app.
 2. Open PPSSPP on Windows.
-3. Open **Settings → Controls → Control mapping** (wording may vary by PPSSPP version).
-4. Select the virtual Xbox 360 controller as the input device if PPSSPP has not selected it automatically.
-5. Map the PSP controls to the corresponding virtual Xbox buttons and stick.
+3. Open **Settings → Controls → Control mapping**. The wording may vary by PPSSPP version.
+4. Select the virtual Xbox 360 controller if PPSSPP has not selected it automatically.
+5. Map the PSP controls to the corresponding virtual Xbox buttons and analog stick.
 6. Test the D-pad, face buttons, shoulder buttons and analog stick in a game or the PPSSPP control test screen.
 
 You normally only need to map the controls once, unless you change the input device or reset PPSSPP's control settings.
 
+## Customise the on-screen layout
+
+The Android app includes a built-in layout editor:
+
+1. Tap **Edit Layout** on the controller screen.
+2. Drag a control to reposition it.
+3. Tap a control to select it.
+4. Use **−** and **+** in the editor bar to make the selected control smaller or larger.
+5. Tap **Done** to return to normal play.
+6. Tap **Reset** to restore the original positions and sizes.
+
+Layout changes are saved on the phone automatically and remain after closing and reopening the app. Each control can be adjusted independently. The editor changes only the on-screen layout; it does not remap the buttons or change the input sent to the host.
+
 ## Bluetooth HID mode
 
-Bluetooth mode is separate from the Windows Wi-Fi receiver:
+Bluetooth mode is independent of the Windows Wi-Fi receiver.
 
-1. Enable Bluetooth on the phone and the host device.
+1. Enable Bluetooth on the phone and host device.
 2. In the Android app, tap **Pair Bluetooth**.
-3. Follow the Android discoverability prompt and pair from the host device's Bluetooth settings.
-4. Select the gamepad/controller input in the game or emulator.
+3. Follow the Android discoverability prompt.
+4. Open Bluetooth settings on the host and pair with the phone/controller when it appears.
+5. Select the gamepad/controller input in the game or emulator.
 
-Bluetooth HID Device support is device-dependent. If the phone does not support the HID Device profile, use the Windows Wi-Fi companion mode instead.
-
-## Network and security notes
-
-- The phone and PC must be reachable on the same local network.
-- The Windows receiver binds to 0.0.0.0:26760 so it can receive packets from the LAN.
-- Only one phone is accepted as the active controller at a time.
-- The receiver releases all controls after 1.5 seconds without a valid state packet.
-- A six-digit PIN is generated on every receiver start. Anyone who can see the PIN and reach the port on your LAN may be able to send input; the current protocol is not encrypted.
-- Do not configure router port forwarding for UDP 26760.
+Bluetooth HID Device support depends on the Android phone's hardware and firmware. If the phone does not expose the required profile, this mode may not be available on that device. Use Windows Wi-Fi mode if you want to connect through the Windows companion and it is working on your network.
 
 ## Troubleshooting
 
-| Problem | What to check |
+| Problem | What it may mean / what to check |
 |---|---|
-| The phone cannot connect | Confirm both devices use the same Wi-Fi, re-check the PC's Wi-Fi IPv4 address, and re-enter the current PIN. |
-| The PIN is rejected | Restarting the receiver creates a new PIN. Use the PIN currently shown in the open receiver window. |
-| The receiver cannot start | Confirm the virtual gamepad driver is installed and that the Python environment has vgamepad. |
-| Windows does not show a controller | Check Device Manager for the virtual gamepad bus/driver and restart the receiver after resolving driver issues. |
-| PPSSPP does not respond | Open control mapping, choose the virtual Xbox controller and map the buttons manually. |
-| Buttons stop responding | Keep the receiver terminal open, check Wi-Fi stability, and reconnect the phone. The receiver automatically releases controls after a timeout. |
-| The IP address keeps changing | Check the active Wi-Fi adapter with ipconfig; a router DHCP reservation can make the PC's local address more consistent. |
-| Bluetooth pairing is unavailable | Your phone may not expose the Bluetooth HID Device profile. Use Wi-Fi mode if available. |
+| The phone cannot connect | The phone and PC may be on different networks, the IPv4 address may be wrong, the receiver may not be running, or Windows Firewall may be blocking Python. |
+| The PIN is rejected | The receiver creates a new PIN each time it starts. Enter the PIN currently shown in the open receiver window. |
+| The receiver cannot start | Check that the Python virtual environment was created, requirements were installed, and the virtual gamepad driver is available. |
+| Windows does not show a controller | Check the virtual gamepad driver installation and restart the receiver after resolving driver issues. |
+| PPSSPP does not respond | Select the virtual Xbox controller in PPSSPP and map the controls manually. |
+| Buttons stop responding | Keep the receiver open, check Wi-Fi stability and reconnect. The receiver releases all controls after 1.5 seconds without a valid state packet. |
+| The PC's IP address changed | Run `ipconfig` again and use the IPv4 address of the active Wi-Fi adapter, not the Default Gateway. |
+| Bluetooth pairing is unavailable | The phone may not support or expose the Bluetooth HID Device profile. |
 
-## Driver status and limitations
+## Security, limitations and project status
 
-The Windows virtual controller uses vgamepad with ViGEmBus. The upstream ViGEmBus project has been archived and is retired, so it may not receive future fixes or security updates. Treat this as a prototype dependency, not a guaranteed long-term driver solution. Install drivers only from trusted official sources and do not disable Windows security features to force installation.
-
-Other current limitations:
-
-- Windows companion mode supports one active phone at a time.
-- The local-network PIN is not a substitute for encrypted authentication.
+- The Windows receiver listens on `0.0.0.0:26760`, so it can receive packets through the PC's network interfaces.
+- The six-digit PIN is a basic local-network pairing check, not encrypted authentication. Anyone who can see the PIN and reach the port on your LAN may be able to send input.
+- Use this prototype only on a trusted private network. Do not expose UDP port 26760 to the public internet or configure router port forwarding for it.
+- If Windows Firewall asks, allow Python on **Private networks only**, and only when you trust the network.
+- Only one phone is accepted as the active controller at a time.
+- The receiver releases all controls after 1.5 seconds without a valid state packet.
 - Bluetooth HID availability depends on Android device hardware and firmware.
-- The app has been tested only on a limited set of devices and games.
-- The current build does not provide per-game profiles, button remapping inside the Android app, or a configurable controller layout.
+- The app has been tested on a limited set of devices and games. Compatibility and latency are not guaranteed.
+- The current build does not provide per-game profiles, in-app button remapping or a configurable mapping editor.
+
+### Virtual gamepad driver note
+
+The Windows virtual controller uses `vgamepad` with ViGEmBus. The upstream ViGEmBus project is archived and retired, so it may not receive future fixes or security updates. Treat it as a prototype dependency, not a guaranteed long-term driver solution. Install drivers only from trusted official sources and do not disable Windows security features to force installation.
+
+## Repository layout
+
+```text
+.
+├── app/
+│   ├── build.gradle
+│   └── src/main/
+│       ├── AndroidManifest.xml
+│       ├── java/com/example/pspcontroller/
+│       │   ├── MainActivity.kt
+│       │   └── AnalogStickView.kt
+│       └── res/
+│           ├── drawable/       # Controller backgrounds and button states
+│           └── layout/         # Landscape controller layout
+├── windows-companion/
+│   ├── receiver.py             # UDP receiver and virtual Xbox gamepad
+│   ├── requirements.txt
+│   └── README.md               # Detailed Windows setup guide
+├── .github/workflows/build.yml # Android build and Python syntax check
+├── build.gradle
+├── settings.gradle
+└── gradle.properties
+```
 
 ## Development checks
 
 The GitHub Actions workflow:
 
-1. Sets up JDK 17 and Android SDK.
-2. Runs Python bytecode compilation on windows-companion/receiver.py.
+1. Sets up JDK 17 and the Android SDK.
+2. Runs Python bytecode compilation on `windows-companion/receiver.py`.
 3. Builds the Android debug APK.
-4. Uploads the APK as the PSP-Controller-APK workflow artifact.
+4. Uploads the APK as the `PSP-Controller-APK` workflow artifact.
 
-For a local Python syntax check:
+For a local Python syntax check from the repository root:
 
-~~~powershell
-.venv\Scripts\python.exe -m py_compile receiver.py
-~~~
+```powershell
+python -m py_compile windows-companion/receiver.py
+```
 
-For a local import check:
+For a local import check after installing the Windows companion requirements:
 
-~~~powershell
-.venv\Scripts\python.exe -c "import vgamepad; print('vgamepad import OK')"
-~~~
+```powershell
+python -c "import vgamepad; print('vgamepad import OK')"
+```
 
 ## License
 
