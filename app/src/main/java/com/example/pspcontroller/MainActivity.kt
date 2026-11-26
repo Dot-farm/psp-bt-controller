@@ -14,6 +14,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import org.json.JSONObject
@@ -32,6 +33,21 @@ class MainActivity : AppCompatActivity() {
     private var buttonState: Int = 0
     private var analogX: Byte = 0
     private var analogY: Byte = 0
+
+    // User-customisable on-screen control layout.
+    private var isLayoutEditing = false
+    private var selectedControl: View? = null
+    private var lastDragRawX = 0f
+    private var lastDragRawY = 0f
+    private val layoutPrefs by lazy {
+        getSharedPreferences("controller_layout", Context.MODE_PRIVATE)
+    }
+    private val customizableControlIds = intArrayOf(
+        R.id.btnCross, R.id.btnCircle, R.id.btnSquare, R.id.btnTriangle,
+        R.id.btnL, R.id.btnR, R.id.btnSelect, R.id.btnStart,
+        R.id.btnUp, R.id.btnDown, R.id.btnLeft, R.id.btnRight,
+        R.id.analogStick
+    )
 
     // Optional Wi-Fi connection to the Windows companion app.
     private val pcExecutor = Executors.newSingleThreadExecutor()
@@ -83,6 +99,8 @@ class MainActivity : AppCompatActivity() {
 
         requestBluetoothPermissions()
         setupButtons()
+        setupLayoutEditor()
+        restoreControlLayout()
 
         findViewById<Button>(R.id.btnConnect).setOnClickListener {
             initBluetoothHid()
@@ -194,26 +212,161 @@ class MainActivity : AppCompatActivity() {
             sendHidReport()
             sendPcState()
         }
+        analog.setOnTouchListener { view, event ->
+            if (isLayoutEditing) {
+                handleLayoutTouch(view, event)
+                true
+            } else {
+                false
+            }
+        }
     }
 
     private fun bindButton(viewId: Int, bitIndex: Int) {
         findViewById<View>(viewId).setOnTouchListener { view, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
-                    view.isPressed = true
-                    buttonState = buttonState or (1 shl bitIndex)
-                    sendHidReport()
-                    sendPcState()
+            if (isLayoutEditing) {
+                handleLayoutTouch(view, event)
+                true
+            } else {
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                        view.isPressed = true
+                        buttonState = buttonState or (1 shl bitIndex)
+                        sendHidReport()
+                        sendPcState()
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_POINTER_UP -> {
+                        view.isPressed = false
+                        buttonState = buttonState and (1 shl bitIndex).inv()
+                        sendHidReport()
+                        sendPcState()
+                    }
                 }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_POINTER_UP -> {
-                    view.isPressed = false
-                    buttonState = buttonState and (1 shl bitIndex).inv()
-                    sendHidReport()
-                    sendPcState()
-                }
+                true
             }
-            true
         }
+    }
+
+    private fun setupLayoutEditor() {
+        findViewById<Button>(R.id.btnEditLayout).setOnClickListener {
+            isLayoutEditing = true
+            selectedControl = null
+            findViewById<Button>(R.id.btnEditLayout).visibility = View.GONE
+            findViewById<View>(R.id.layoutEditorPanel).visibility = View.VISIBLE
+            updateSelectedControlLabel()
+            Toast.makeText(
+                this,
+                "Drag controls to move them. Select one, then use − / + to resize.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+
+        findViewById<Button>(R.id.btnDoneLayout).setOnClickListener {
+            isLayoutEditing = false
+            selectedControl = null
+            findViewById<View>(R.id.layoutEditorPanel).visibility = View.GONE
+            findViewById<Button>(R.id.btnEditLayout).visibility = View.VISIBLE
+        }
+
+        findViewById<Button>(R.id.btnSizeDown).setOnClickListener {
+            resizeSelectedControl(-0.1f)
+        }
+        findViewById<Button>(R.id.btnSizeUp).setOnClickListener {
+            resizeSelectedControl(0.1f)
+        }
+        findViewById<Button>(R.id.btnResetLayout).setOnClickListener {
+            resetControlLayout()
+        }
+    }
+
+    private fun handleLayoutTouch(view: View, event: MotionEvent) {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                selectedControl = view
+                lastDragRawX = event.rawX
+                lastDragRawY = event.rawY
+                updateSelectedControlLabel()
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val dx = event.rawX - lastDragRawX
+                val dy = event.rawY - lastDragRawY
+                view.translationX += dx
+                view.translationY += dy
+                lastDragRawX = event.rawX
+                lastDragRawY = event.rawY
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                saveControlLayout(view)
+                view.performClick()
+            }
+        }
+    }
+
+    private fun resizeSelectedControl(change: Float) {
+        val view = selectedControl ?: run {
+            Toast.makeText(this, "Tap a control first", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val newScale = (view.scaleX + change).coerceIn(0.6f, 1.8f)
+        view.scaleX = newScale
+        view.scaleY = newScale
+        saveControlLayout(view)
+    }
+
+    private fun saveControlLayout(view: View) {
+        layoutPrefs.edit()
+            .putFloat("${view.id}_x", view.translationX)
+            .putFloat("${view.id}_y", view.translationY)
+            .putFloat("${view.id}_scale", view.scaleX)
+            .apply()
+    }
+
+    private fun restoreControlLayout() {
+        customizableControlIds.forEach { id ->
+            val view = findViewById<View>(id)
+            view.translationX = layoutPrefs.getFloat("${id}_x", 0f)
+            view.translationY = layoutPrefs.getFloat("${id}_y", 0f)
+            val scale = layoutPrefs.getFloat("${id}_scale", 1f).coerceIn(0.6f, 1.8f)
+            view.scaleX = scale
+            view.scaleY = scale
+        }
+    }
+
+    private fun resetControlLayout() {
+        layoutPrefs.edit().clear().apply()
+        customizableControlIds.forEach { id ->
+            findViewById<View>(id).apply {
+                translationX = 0f
+                translationY = 0f
+                scaleX = 1f
+                scaleY = 1f
+            }
+        }
+        selectedControl = null
+        updateSelectedControlLabel()
+        Toast.makeText(this, "Controller layout restored to default", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun updateSelectedControlLabel() {
+        val label = selectedControl?.let { view ->
+            when (view.id) {
+                R.id.analogStick -> "ANALOG"
+                R.id.btnCross -> "CROSS"
+                R.id.btnCircle -> "CIRCLE"
+                R.id.btnSquare -> "SQUARE"
+                R.id.btnTriangle -> "TRIANGLE"
+                R.id.btnL -> "L"
+                R.id.btnR -> "R"
+                R.id.btnSelect -> "SELECT"
+                R.id.btnStart -> "START"
+                R.id.btnUp -> "D-PAD UP"
+                R.id.btnDown -> "D-PAD DOWN"
+                R.id.btnLeft -> "D-PAD LEFT"
+                R.id.btnRight -> "D-PAD RIGHT"
+                else -> "CONTROL"
+            }
+        } ?: "Select a control"
+        findViewById<TextView>(R.id.textSelectedControl).text = label
     }
 
     private fun sendHidReport() {
