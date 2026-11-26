@@ -5,15 +5,23 @@ import android.annotation.SuppressLint
 import android.bluetooth.*
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
+import android.widget.EditText
 import android.widget.Toast
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import org.json.JSONObject
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetAddress
 import java.util.concurrent.Executors
 
 @SuppressLint("MissingPermission")
@@ -22,45 +30,79 @@ class MainActivity : AppCompatActivity() {
     private var hidDevice: BluetoothHidDevice? = null
     private var hostDevice: BluetoothDevice? = null
 
-    // Report state: [Buttons_Low_Byte, Buttons_High_Byte, Analog_X, Analog_Y]
+    // Report state: 12 buttons plus two signed analog axes.
     private var buttonState: Int = 0
     private var analogX: Byte = 0
     private var analogY: Byte = 0
 
-    // Standard HID Gamepad Descriptor (12 Buttons + X/Y Axis)
+    // User-customisable on-screen control layout.
+    private var isLayoutEditing = false
+    private var selectedControl: View? = null
+    private var lastDragRawX = 0f
+    private var lastDragRawY = 0f
+    private val layoutPrefs by lazy {
+        getSharedPreferences("controller_layout", Context.MODE_PRIVATE)
+    }
+    private val customizableControlIds = intArrayOf(
+        R.id.btnCross, R.id.btnCircle, R.id.btnSquare, R.id.btnTriangle,
+        R.id.btnL, R.id.btnR, R.id.btnSelect, R.id.btnStart,
+        R.id.btnUp, R.id.btnDown, R.id.btnLeft, R.id.btnRight,
+        R.id.analogStick
+    )
+
+    // Optional Wi-Fi connection to the Windows companion app.
+    private val pcExecutor = Executors.newSingleThreadExecutor()
+    @Volatile private var pcConnected = false
+    @Volatile private var pcAddress: InetAddress? = null
+    @Volatile private var pcPin: String? = null
+    private var pcSocket: DatagramSocket? = null // accessed only on pcExecutor
+    private val pcPort = 26760
+    private val pcHeartbeatHandler = Handler(Looper.getMainLooper())
+    private val pcHeartbeat = object : Runnable {
+        override fun run() {
+            if (pcConnected) {
+                sendPcState()
+                pcHeartbeatHandler.postDelayed(this, 500)
+            }
+        }
+    }
+
     private val hidDescriptor = byteArrayOf(
-        0x05.toByte(), 0x01.toByte(), // Usage Page (Generic Desktop)
-        0x09.toByte(), 0x05.toByte(), // Usage (Game Pad)
-        0xA1.toByte(), 0x01.toByte(), // Collection (Application)
-        0x85.toByte(), 0x01.toByte(), //   Report ID (1)
-        0x05.toByte(), 0x09.toByte(), //   Usage Page (Button)
-        0x19.toByte(), 0x01.toByte(), //   Usage Minimum (Button 1)
-        0x29.toByte(), 0x0C.toByte(), //   Usage Maximum (Button 12)
-        0x15.toByte(), 0x00.toByte(), //   Logical Minimum (0)
-        0x25.toByte(), 0x01.toByte(), //   Logical Maximum (1)
-        0x75.toByte(), 0x01.toByte(), //   Report Size (1 bit)
-        0x95.toByte(), 0x0C.toByte(), //   Report Count (12 buttons)
-        0x81.toByte(), 0x02.toByte(), //   Input (Data, Variable, Absolute)
-        0x75.toByte(), 0x04.toByte(), //   Report Size (4 bits padding)
-        0x95.toByte(), 0x01.toByte(), //   Report Count (1)
-        0x81.toByte(), 0x03.toByte(), //   Input (Constant)
-        0x05.toByte(), 0x01.toByte(), //   Usage Page (Generic Desktop)
-        0x09.toByte(), 0x30.toByte(), //   Usage (X)
-        0x09.toByte(), 0x31.toByte(), //   Usage (Y)
-        0x15.toByte(), 0x81.toByte(), //   Logical Minimum (-127)
-        0x25.toByte(), 0x7F.toByte(), //   Logical Maximum (127)
-        0x75.toByte(), 0x08.toByte(), //   Report Size (8 bits)
-        0x95.toByte(), 0x02.toByte(), //   Report Count (2 axes)
-        0x81.toByte(), 0x02.toByte(), //   Input (Data, Variable, Absolute)
-        0xC0.toByte()                 // End Collection
+        0x05.toByte(), 0x01.toByte(),
+        0x09.toByte(), 0x05.toByte(),
+        0xA1.toByte(), 0x01.toByte(),
+        0x85.toByte(), 0x01.toByte(),
+        0x05.toByte(), 0x09.toByte(),
+        0x19.toByte(), 0x01.toByte(),
+        0x29.toByte(), 0x0C.toByte(),
+        0x15.toByte(), 0x00.toByte(),
+        0x25.toByte(), 0x01.toByte(),
+        0x75.toByte(), 0x01.toByte(),
+        0x95.toByte(), 0x0C.toByte(),
+        0x81.toByte(), 0x02.toByte(),
+        0x75.toByte(), 0x04.toByte(),
+        0x95.toByte(), 0x01.toByte(),
+        0x81.toByte(), 0x03.toByte(),
+        0x05.toByte(), 0x01.toByte(),
+        0x09.toByte(), 0x30.toByte(),
+        0x09.toByte(), 0x31.toByte(),
+        0x15.toByte(), 0x81.toByte(),
+        0x25.toByte(), 0x7F.toByte(),
+        0x75.toByte(), 0x08.toByte(),
+        0x95.toByte(), 0x02.toByte(),
+        0x81.toByte(), 0x02.toByte(),
+        0xC0.toByte()
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        disableChildClipping(findViewById(android.R.id.content))
 
         requestBluetoothPermissions()
         setupButtons()
+        setupLayoutEditor()
+        restoreControlLayout()
 
         findViewById<Button>(R.id.btnConnect).setOnClickListener {
             initBluetoothHid()
@@ -68,6 +110,14 @@ class MainActivity : AppCompatActivity() {
                 putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
             }
             startActivity(discoverableIntent)
+        }
+
+        findViewById<Button>(R.id.btnConnectPc).setOnClickListener {
+            if (pcConnected) {
+                disconnectPc()
+            } else {
+                connectPc()
+            }
         }
     }
 
@@ -100,7 +150,9 @@ class MainActivity : AppCompatActivity() {
                         BluetoothHidDevice.SUBCLASS1_COMBO,
                         hidDescriptor
                     )
-                    hidDevice?.registerApp(sdp, null, null, Executors.newSingleThreadExecutor(), hidCallback)
+                    hidDevice?.registerApp(
+                        sdp, null, null, Executors.newSingleThreadExecutor(), hidCallback
+                    )
                 }
             }
 
@@ -113,7 +165,13 @@ class MainActivity : AppCompatActivity() {
     private val hidCallback = object : BluetoothHidDevice.Callback() {
         override fun onAppStatusChanged(pluggedDevice: BluetoothDevice?, registered: Boolean) {
             runOnUiThread {
-                if (registered) Toast.makeText(this@MainActivity, "Gamepad Ready! Pair from target device.", Toast.LENGTH_SHORT).show()
+                if (registered) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Bluetooth gamepad ready to pair",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
         }
 
@@ -121,54 +179,226 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 if (state == BluetoothProfile.STATE_CONNECTED) {
                     hostDevice = device
-                    Toast.makeText(this@MainActivity, "Connected to ${device.name}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Connected to ${device.name}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    sendHidReport()
                 } else if (state == BluetoothProfile.STATE_DISCONNECTED) {
                     hostDevice = null
-                    Toast.makeText(this@MainActivity, "Disconnected", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@MainActivity, "Bluetooth disconnected", Toast.LENGTH_SHORT).show()
                 }
             }
         }
     }
 
     private fun setupButtons() {
-        // Map each button to a bit position (0 to 11)
-        bindButton(R.id.btnCross, 0)    // Button 1
-        bindButton(R.id.btnCircle, 1)   // Button 2
-        bindButton(R.id.btnSquare, 2)   // Button 3
-        bindButton(R.id.btnTriangle, 3) // Button 4
-        bindButton(R.id.btnL, 4)        // Button 5
-        bindButton(R.id.btnR, 5)        // Button 6
-        bindButton(R.id.btnSelect, 6)   // Button 7
-        bindButton(R.id.btnStart, 7)    // Button 8
-        bindButton(R.id.btnUp, 8)       // Button 9
-        bindButton(R.id.btnDown, 9)     // Button 10
-        bindButton(R.id.btnLeft, 10)    // Button 11
-        bindButton(R.id.btnRight, 11)   // Button 12
+        bindButton(R.id.btnCross, 0)
+        bindButton(R.id.btnCircle, 1)
+        bindButton(R.id.btnSquare, 2)
+        bindButton(R.id.btnTriangle, 3)
+        bindButton(R.id.btnL, 4)
+        bindButton(R.id.btnR, 5)
+        bindButton(R.id.btnSelect, 6)
+        bindButton(R.id.btnStart, 7)
+        bindButton(R.id.btnUp, 8)
+        bindButton(R.id.btnDown, 9)
+        bindButton(R.id.btnLeft, 10)
+        bindButton(R.id.btnRight, 11)
 
         val analog = findViewById<AnalogStickView>(R.id.analogStick)
         analog.onMoveListener = { x, y ->
             analogX = x
             analogY = y
             sendHidReport()
+            sendPcState()
+        }
+        analog.setOnTouchListener { view, event ->
+            if (isLayoutEditing) {
+                handleLayoutTouch(view, event)
+                true
+            } else {
+                false
+            }
         }
     }
 
     private fun bindButton(viewId: Int, bitIndex: Int) {
-        findViewById<View>(viewId).setOnTouchListener { v, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    v.isPressed = true
-                    buttonState = buttonState or (1 shl bitIndex)
-                    sendHidReport()
+        var activePointerId = MotionEvent.INVALID_POINTER_ID
+        findViewById<View>(viewId).setOnTouchListener { view, event ->
+            if (isLayoutEditing) {
+                handleLayoutTouch(view, event)
+                true
+            } else {
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        activePointerId = event.getPointerId(event.actionIndex)
+                        view.isPressed = true
+                        buttonState = buttonState or (1 shl bitIndex)
+                        sendHidReport()
+                        sendPcState()
+                    }
+                    MotionEvent.ACTION_POINTER_DOWN -> {
+                        if (activePointerId == MotionEvent.INVALID_POINTER_ID) {
+                            activePointerId = event.getPointerId(event.actionIndex)
+                            view.isPressed = true
+                            buttonState = buttonState or (1 shl bitIndex)
+                            sendHidReport()
+                            sendPcState()
+                        }
+                    }
+                    MotionEvent.ACTION_POINTER_UP -> {
+                        if (event.getPointerId(event.actionIndex) == activePointerId) {
+                            activePointerId = MotionEvent.INVALID_POINTER_ID
+                            view.isPressed = false
+                            buttonState = buttonState and (1 shl bitIndex).inv()
+                            sendHidReport()
+                            sendPcState()
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        activePointerId = MotionEvent.INVALID_POINTER_ID
+                        view.isPressed = false
+                        buttonState = buttonState and (1 shl bitIndex).inv()
+                        sendHidReport()
+                        sendPcState()
+                    }
                 }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    v.isPressed = false
-                    buttonState = buttonState and (1 shl bitIndex).inv()
-                    sendHidReport()
-                }
+                true
             }
-            true
         }
+    }
+
+    private fun disableChildClipping(group: ViewGroup) {
+        group.clipChildren = false
+        group.clipToPadding = false
+        for (index in 0 until group.childCount) {
+            val child = group.getChildAt(index)
+            if (child is ViewGroup) disableChildClipping(child)
+        }
+    }
+
+    private fun setupLayoutEditor() {
+        findViewById<Button>(R.id.btnEditLayout).setOnClickListener {
+            isLayoutEditing = true
+            selectedControl = null
+            findViewById<Button>(R.id.btnEditLayout).visibility = View.GONE
+            findViewById<View>(R.id.layoutEditorPanel).visibility = View.VISIBLE
+            updateSelectedControlLabel()
+            Toast.makeText(
+                this,
+                "Drag controls to move them. Select one, then use − / + to resize.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+
+        findViewById<Button>(R.id.btnDoneLayout).setOnClickListener {
+            isLayoutEditing = false
+            selectedControl = null
+            findViewById<View>(R.id.layoutEditorPanel).visibility = View.GONE
+            findViewById<Button>(R.id.btnEditLayout).visibility = View.VISIBLE
+        }
+
+        findViewById<Button>(R.id.btnSizeDown).setOnClickListener {
+            resizeSelectedControl(-0.1f)
+        }
+        findViewById<Button>(R.id.btnSizeUp).setOnClickListener {
+            resizeSelectedControl(0.1f)
+        }
+        findViewById<Button>(R.id.btnResetLayout).setOnClickListener {
+            resetControlLayout()
+        }
+    }
+
+    private fun handleLayoutTouch(view: View, event: MotionEvent) {
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                selectedControl = view
+                lastDragRawX = event.rawX
+                lastDragRawY = event.rawY
+                updateSelectedControlLabel()
+            }
+            MotionEvent.ACTION_MOVE -> {
+                val dx = event.rawX - lastDragRawX
+                val dy = event.rawY - lastDragRawY
+                view.translationX += dx
+                view.translationY += dy
+                lastDragRawX = event.rawX
+                lastDragRawY = event.rawY
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                saveControlLayout(view)
+                view.performClick()
+            }
+        }
+    }
+
+    private fun resizeSelectedControl(change: Float) {
+        val view = selectedControl ?: run {
+            Toast.makeText(this, "Tap a control first", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val newScale = (view.scaleX + change).coerceIn(0.6f, 1.8f)
+        view.scaleX = newScale
+        view.scaleY = newScale
+        saveControlLayout(view)
+    }
+
+    private fun saveControlLayout(view: View) {
+        layoutPrefs.edit()
+            .putFloat("${view.id}_x", view.translationX)
+            .putFloat("${view.id}_y", view.translationY)
+            .putFloat("${view.id}_scale", view.scaleX)
+            .apply()
+    }
+
+    private fun restoreControlLayout() {
+        customizableControlIds.forEach { id ->
+            val view = findViewById<View>(id)
+            view.translationX = layoutPrefs.getFloat("${id}_x", 0f)
+            view.translationY = layoutPrefs.getFloat("${id}_y", 0f)
+            val scale = layoutPrefs.getFloat("${id}_scale", 1f).coerceIn(0.6f, 1.8f)
+            view.scaleX = scale
+            view.scaleY = scale
+        }
+    }
+
+    private fun resetControlLayout() {
+        layoutPrefs.edit().clear().apply()
+        customizableControlIds.forEach { id ->
+            findViewById<View>(id).apply {
+                translationX = 0f
+                translationY = 0f
+                scaleX = 1f
+                scaleY = 1f
+            }
+        }
+        selectedControl = null
+        updateSelectedControlLabel()
+        Toast.makeText(this, "Controller layout restored to default", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun updateSelectedControlLabel() {
+        val label = selectedControl?.let { view ->
+            when (view.id) {
+                R.id.analogStick -> "ANALOG"
+                R.id.btnCross -> "CROSS"
+                R.id.btnCircle -> "CIRCLE"
+                R.id.btnSquare -> "SQUARE"
+                R.id.btnTriangle -> "TRIANGLE"
+                R.id.btnL -> "L"
+                R.id.btnR -> "R"
+                R.id.btnSelect -> "SELECT"
+                R.id.btnStart -> "START"
+                R.id.btnUp -> "D-PAD UP"
+                R.id.btnDown -> "D-PAD DOWN"
+                R.id.btnLeft -> "D-PAD LEFT"
+                R.id.btnRight -> "D-PAD RIGHT"
+                else -> "CONTROL"
+            }
+        } ?: "Select a control"
+        findViewById<TextView>(R.id.textSelectedControl).text = label
     }
 
     private fun sendHidReport() {
@@ -180,5 +410,143 @@ class MainActivity : AppCompatActivity() {
             analogY
         )
         hidDevice?.sendReport(device, 1, report)
+    }
+
+    private fun connectPc() {
+        val ipText = findViewById<EditText>(R.id.inputPcIp).text.toString().trim()
+        if (ipText.isEmpty()) {
+            Toast.makeText(this, "Enter your laptop's local IPv4 address", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val pin = findViewById<EditText>(R.id.inputPcPin).text.toString().trim()
+        if (pin.length != 6 || pin.any { !it.isDigit() }) {
+            Toast.makeText(this, "Enter the 6-digit PIN shown on your laptop", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val address = try {
+            InetAddress.getByName(ipText)
+        } catch (_: Exception) {
+            Toast.makeText(this, "That IP address is not valid", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        pcAddress = address
+        pcPin = pin
+        pcConnected = true
+        pcHeartbeatHandler.removeCallbacks(pcHeartbeat)
+        pcHeartbeatHandler.postDelayed(pcHeartbeat, 500)
+        pcExecutor.execute {
+            try {
+                if (pcSocket == null || pcSocket?.isClosed == true) {
+                    pcSocket = DatagramSocket()
+                }
+                sendPcPacket(
+                    JSONObject()
+                        .put("type", "hello")
+                        .put("app", "PSP BT Gamepad")
+                        .put("pin", pin)
+                        .toString(),
+                    address
+                )
+            } catch (error: Exception) {
+                pcConnected = false
+                pcHeartbeatHandler.removeCallbacks(pcHeartbeat)
+                runOnUiThread {
+                    findViewById<Button>(R.id.btnConnectPc).text = "Connect to PC"
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Could not send to laptop: ${error.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+
+        findViewById<Button>(R.id.btnConnectPc).text = "Disconnect PC"
+        Toast.makeText(this, "Sending to $ipText:$pcPort", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun disconnectPc() {
+        pcConnected = false
+        pcHeartbeatHandler.removeCallbacks(pcHeartbeat)
+        val address = pcAddress
+        val pin = pcPin
+        pcAddress = null
+        pcPin = null
+        pcExecutor.execute {
+            try {
+                if (address != null && pin != null && pcSocket != null && pcSocket?.isClosed == false) {
+                    sendPcPacket(
+                        JSONObject()
+                            .put("type", "state")
+                            .put("buttons", 0)
+                            .put("x", 0)
+                            .put("y", 0)
+                            .put("pin", pin)
+                            .toString(),
+                        address
+                    )
+                }
+            } catch (_: Exception) {
+                // Closing the socket below still releases the local connection.
+            } finally {
+                pcSocket?.close()
+                pcSocket = null
+            }
+        }
+        findViewById<Button>(R.id.btnConnectPc).text = "Connect to PC"
+        Toast.makeText(this, "PC connection stopped", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun sendPcState() {
+        if (!pcConnected) return
+        val address = pcAddress ?: return
+        val pin = pcPin ?: return
+        val packet = JSONObject()
+            .put("type", "state")
+            .put("buttons", buttonState)
+            .put("x", analogX.toInt())
+            .put("y", analogY.toInt())
+            .put("pin", pin)
+            .toString()
+
+        pcExecutor.execute {
+            try {
+                if (pcSocket == null || pcSocket?.isClosed == true) {
+                    pcSocket = DatagramSocket()
+                }
+                sendPcPacket(packet, address)
+            } catch (error: Exception) {
+                pcConnected = false
+                pcHeartbeatHandler.removeCallbacks(pcHeartbeat)
+                runOnUiThread {
+                    findViewById<Button>(R.id.btnConnectPc).text = "Connect to PC"
+                    Toast.makeText(
+                        this@MainActivity,
+                        "PC send failed: ${error.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+
+    private fun sendPcPacket(message: String, address: InetAddress) {
+        val bytes = message.toByteArray(Charsets.UTF_8)
+        val packet = DatagramPacket(bytes, bytes.size, address, pcPort)
+        pcSocket?.send(packet)
+    }
+
+    override fun onDestroy() {
+        pcConnected = false
+        pcHeartbeatHandler.removeCallbacks(pcHeartbeat)
+        pcExecutor.execute {
+            pcSocket?.close()
+            pcSocket = null
+        }
+        pcExecutor.shutdown()
+        super.onDestroy()
     }
 }
