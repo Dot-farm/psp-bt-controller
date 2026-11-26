@@ -1,38 +1,55 @@
-# PSP BT Gamepad
+# PSP BT Gamepad — Windows companion
 
-An Android on-screen gamepad with two connection options:
+This folder contains the Windows receiver for the Android controller. It listens for controller state over local Wi-Fi and exposes it as a virtual Xbox 360 controller using vgamepad.
 
-- **Bluetooth HID:** Android exposes itself as a Bluetooth gamepad on supported phones.
-- **Windows companion:** sends controller state over local Wi-Fi to a Windows receiver, which exposes a virtual Xbox 360 controller.
+## Requirements
 
-## Windows companion setup
+- Windows 10 or Windows 11.
+- Python 3.10 or newer.
+- A compatible ViGEmBus virtual gamepad driver installation.
+- Phone and PC on the same trusted Wi-Fi network.
 
-1. Use a Windows 10/11 PC and install Python 3.10 or newer.
-2. Open PowerShell in the `windows-companion` folder.
-3. Install the Python dependency:
+## First-time setup
 
-   ```powershell
-   py -m pip install -r requirements.txt
-   ```
+Open Command Prompt in this folder (File Explorer address bar → type cmd → Enter), then run:
 
-   On Windows, the `vgamepad` package may launch its bundled ViGEmBus driver installer. Review the installer and approve it only if you're comfortable installing a system-level driver. Administrator approval may be required.
-4. Start the receiver:
+~~~cmd
+py -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+~~~
 
-   ```powershell
-   py receiver.py
-   ```
+If ViGEmBus is already installed and you need to skip the package's bundled driver installer, run:
 
-5. The receiver displays a fresh six-digit pairing PIN. Keep the receiver window open.
-6. Find your laptop's IPv4 address with `ipconfig` (use the Wi-Fi adapter's IPv4 address).
-7. Connect the phone and laptop to the same trusted Wi-Fi network.
-8. Open PSP BT Gamepad on Android, enter the laptop IPv4 address and the PIN, then tap **Connect to PC**.
-9. If Windows Defender Firewall asks, allow Python on private networks only.
+~~~cmd
+set VGAMEPAD_SKIP_VIGEMBUS_INSTALL=true
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+~~~
 
-The receiver listens on UDP port **26760**. The pairing PIN is regenerated every time the receiver starts. Do not expose this UDP port to the public internet; this prototype is intended for a trusted local network.
+Only use the skip option if a compatible driver is already installed. Do not download drivers from unofficial sites or bypass Windows driver-security controls.
+
+## Start the receiver
+
+After setup, either double-click **Start-Controller.bat** or run:
+
+~~~cmd
+.venv\Scripts\python.exe receiver.py
+~~~
+
+Keep the receiver window open while playing. It prints a fresh six-digit pairing PIN each time it starts.
+
+## Connect the Android app
+
+1. Connect the phone and PC to the same trusted Wi-Fi network.
+2. On Windows, run ipconfig and find the IPv4 Address under the active Wi-Fi adapter. Do not use the Default Gateway.
+3. Enter that IPv4 address and the current six-digit PIN in the Android app.
+4. Tap **Connect to PC**.
+5. If Windows Firewall asks, allow Python on private networks only, if you trust the network.
+
+The receiver listens on UDP port **26760**. Do not expose this port to the public internet. The PIN is a basic LAN pairing safeguard, not encrypted authentication.
 
 ## Controls
 
-| Phone control | Virtual Xbox control |
+| Android control | Virtual Xbox control |
 |---|---|
 | Cross | A |
 | Circle | B |
@@ -43,13 +60,22 @@ The receiver listens on UDP port **26760**. The pairing PIN is regenerated every
 | D-pad | D-pad |
 | Analog stick | Left analog stick |
 
-## Driver note
+## PPSSPP setup
 
-The current virtual Xbox output uses ViGEmBus through `vgamepad`. The upstream ViGEmBus project was archived in November 2023, so it is retired and may not receive future fixes. This is a prototype choice, not a long-term driver guarantee. We should confirm your Windows version and test driver compatibility before relying on it.
+1. Start the receiver and connect the phone.
+2. Open PPSSPP → Settings → Controls → Control mapping.
+3. Select the virtual Xbox 360 controller if it is not selected automatically.
+4. Map the PSP controls to the corresponding Xbox buttons and stick.
+5. Test all controls in a game or the PPSSPP control test screen.
 
-## Current limitations
+## Troubleshooting
 
-- This first companion version supports one active phone at a time.
-- The pairing PIN is a basic local-network safeguard, not encrypted authentication.
-- Android Bluetooth HID mode remains available separately.
-- Successful compilation does not replace real-device testing. Check button mapping and connection stability with PPSSPP and your target PC games.
+- **No controller appears:** check that the virtual gamepad driver is installed and that the receiver is running.
+- **Phone cannot connect:** confirm both devices are on the same Wi-Fi, check the PC's Wi-Fi IPv4 address, and use the current PIN.
+- **PIN rejected:** restart the receiver and enter the newly generated PIN.
+- **PPSSPP ignores input:** select the virtual Xbox controller and map the buttons manually.
+- **Input stops:** keep the receiver window open and check Wi-Fi stability. The receiver releases all buttons after 1.5 seconds without a valid packet.
+
+## Driver status
+
+This project uses vgamepad with ViGEmBus. The upstream ViGEmBus project is archived and retired, so future compatibility and fixes are not guaranteed. Treat this as a prototype dependency. Install drivers only from trusted official sources.
