@@ -1,20 +1,12 @@
 """
-PSP BT Gamepad - Windows companion receiver
+PSP BT Gamepad - Windows companion receiver.
 
-Receives controller state packets from the Android app over the same local
-Wi-Fi network and exposes them as a virtual Xbox 360 controller.
-
-Prerequisites:
-  1. Windows 10/11
-  2. Python 3.10+
-  3. ViGEmBus driver installed (see README.md)
-  4. pip install -r requirements.txt
-
-Run:
-  py receiver.py
+Receives controller state over the trusted local Wi-Fi network and exposes
+it as a virtual Xbox 360 controller through vgamepad.
 """
 
 import json
+import secrets
 import socket
 import time
 
@@ -47,7 +39,6 @@ def apply_state(gamepad, buttons, x_axis, y_axis):
         if buttons & (1 << bit):
             gamepad.press_button(button=button)
 
-    # Android sends -127..127. XInput uses -32768..32767.
     x_value = max(-32768, min(32767, int(x_axis * 32767 / 127)))
     # Android screen coordinates grow downward; XInput Y grows upward.
     y_value = max(-32768, min(32767, int(-y_axis * 32767 / 127)))
@@ -61,10 +52,12 @@ def main():
     sock.bind((HOST, PORT))
     sock.settimeout(0.25)
 
+    pairing_pin = f"{secrets.randbelow(1_000_000):06d}"
+    active_client = None
     last_packet_at = 0.0
-    last_client = None
 
     print(f"PSP BT Gamepad receiver listening on UDP {PORT}")
+    print(f"Enter this pairing PIN in the Android app: {pairing_pin}")
     print("Keep this window open. Press Ctrl+C to stop.")
 
     try:
@@ -72,14 +65,28 @@ def main():
             try:
                 raw, client = sock.recvfrom(2048)
                 message = json.loads(raw.decode("utf-8"))
-                last_packet_at = time.monotonic()
-                last_client = client[0]
 
+                # A short-lived PIN prevents other casual LAN devices from
+                # sending controller input without first seeing the PC screen.
+                if message.get("pin") != pairing_pin:
+                    continue
+
+                client_ip = client[0]
                 if message.get("type") == "hello":
-                    print(f"Phone found: {last_client}")
+                    if active_client is None or active_client == client_ip:
+                        active_client = client_ip
+                        last_packet_at = time.monotonic()
+                        print(f"Phone paired: {client_ip}")
                     continue
 
                 if message.get("type") == "state":
+                    if active_client is None:
+                        active_client = client_ip
+                        print(f"Phone paired: {client_ip}")
+                    if client_ip != active_client:
+                        continue
+
+                    last_packet_at = time.monotonic()
                     apply_state(
                         gamepad,
                         int(message.get("buttons", 0)),
@@ -89,6 +96,7 @@ def main():
             except socket.timeout:
                 if last_packet_at and time.monotonic() - last_packet_at > STALE_AFTER_SECONDS:
                     gamepad.reset()
+                    active_client = None
                     last_packet_at = 0.0
                     print("Controller timed out; all buttons released.")
             except (UnicodeDecodeError, json.JSONDecodeError, ValueError, TypeError) as error:
