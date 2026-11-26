@@ -2,148 +2,232 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#121212"
-    android:padding="16dp">
+    android:background="@drawable/controller_bg"
+    android:padding="12dp">
+
+    <TextView
+        android:id="@+id/titleLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_alignParentTop="true"
+        android:text="PSP  /  GAMEPAD"
+        android:textColor="#F2F5FA"
+        android:textStyle="bold"
+        android:textSize="13sp"
+        android:letterSpacing="0.16"
+        android:paddingTop="3dp" />
+
+    <TextView
+        android:id="@+id/subtitleLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/titleLabel"
+        android:layout_centerHorizontal="true"
+        android:text="WIRELESS CONTROLLER"
+        android:textColor="#8290A5"
+        android:textSize="8sp"
+        android:letterSpacing="0.20" />
 
     <Button
         android:id="@+id/btnL"
-        android:layout_width="140dp"
-        android:layout_height="55dp"
+        android:layout_width="112dp"
+        android:layout_height="42dp"
         android:layout_alignParentStart="true"
         android:layout_alignParentTop="true"
+        android:background="@drawable/control_button"
         android:text="L"
-        android:textSize="18sp" />
-
-    <Button
-        android:id="@+id/btnConnect"
-        android:layout_width="wrap_content"
-        android:layout_height="48dp"
-        android:layout_centerHorizontal="true"
-        android:layout_alignParentTop="true"
-        android:backgroundTint="#1E88E5"
-        android:text="Connect Bluetooth" />
+        android:textColor="#EAF0F8"
+        android:textStyle="bold"
+        android:textSize="16sp"
+        android:minHeight="0dp"
+        android:minWidth="0dp"
+        android:stateListAnimator="@null" />
 
     <Button
         android:id="@+id/btnR"
-        android:layout_width="140dp"
-        android:layout_height="55dp"
+        android:layout_width="112dp"
+        android:layout_height="42dp"
         android:layout_alignParentEnd="true"
         android:layout_alignParentTop="true"
+        android:background="@drawable/control_button"
         android:text="R"
-        android:textSize="18sp" />
+        android:textColor="#EAF0F8"
+        android:textStyle="bold"
+        android:textSize="16sp"
+        android:minHeight="0dp"
+        android:minWidth="0dp"
+        android:stateListAnimator="@null" />
 
-    <EditText
-        android:id="@+id/inputPcIp"
-        android:layout_width="190dp"
-        android:layout_height="44dp"
-        android:layout_below="@id/btnConnect"
+    <LinearLayout
+        android:id="@+id/connectionPanel"
+        android:layout_width="230dp"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/subtitleLabel"
         android:layout_centerHorizontal="true"
-        android:layout_marginTop="2dp"
-        android:backgroundTint="#90CAF9"
-        android:hint="Laptop IPv4 address"
-        android:inputType="textNoSuggestions"
-        android:singleLine="true"
-        android:textColor="#FFFFFF"
-        android:textColorHint="#BBBBBB"
-        android:textSize="13sp" />
+        android:layout_marginTop="7dp"
+        android:orientation="vertical"
+        android:padding="10dp"
+        android:background="@drawable/panel_bg">
 
-    <EditText
-        android:id="@+id/inputPcPin"
-        android:layout_width="190dp"
-        android:layout_height="42dp"
-        android:layout_below="@id/inputPcIp"
-        android:layout_centerHorizontal="true"
-        android:backgroundTint="#90CAF9"
-        android:hint="6-digit PC PIN"
-        android:inputType="number"
-        android:maxLength="6"
-        android:singleLine="true"
-        android:textColor="#FFFFFF"
-        android:textColorHint="#BBBBBB"
-        android:textSize="13sp" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="PC CONNECTION"
+            android:textColor="#AAB8CC"
+            android:textStyle="bold"
+            android:textSize="9sp"
+            android:letterSpacing="0.14"
+            android:gravity="center"
+            android:layout_marginBottom="5dp" />
 
-    <Button
-        android:id="@+id/btnConnectPc"
-        android:layout_width="190dp"
-        android:layout_height="42dp"
-        android:layout_below="@id/inputPcPin"
-        android:layout_centerHorizontal="true"
-        android:text="Connect to PC"
-        android:textSize="12sp" />
+        <EditText
+            android:id="@+id/inputPcIp"
+            android:layout_width="match_parent"
+            android:layout_height="35dp"
+            android:background="@drawable/input_bg"
+            android:hint="Laptop IPv4 address"
+            android:inputType="textNoSuggestions"
+            android:singleLine="true"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:textColor="#F2F5FA"
+            android:textColorHint="#718097"
+            android:textSize="12sp"
+            android:layout_marginBottom="5dp" />
+
+        <EditText
+            android:id="@+id/inputPcPin"
+            android:layout_width="match_parent"
+            android:layout_height="35dp"
+            android:background="@drawable/input_bg"
+            android:hint="6-digit PC PIN"
+            android:inputType="number"
+            android:maxLength="6"
+            android:singleLine="true"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:textColor="#F2F5FA"
+            android:textColorHint="#718097"
+            android:textSize="12sp"
+            android:layout_marginBottom="6dp" />
+
+        <Button
+            android:id="@+id/btnConnectPc"
+            android:layout_width="match_parent"
+            android:layout_height="36dp"
+            android:background="@drawable/connect_button"
+            android:text="CONNECT TO PC"
+            android:textColor="#07111F"
+            android:textStyle="bold"
+            android:textSize="10sp"
+            android:letterSpacing="0.06"
+            android:minHeight="0dp"
+            android:minWidth="0dp"
+            android:stateListAnimator="@null" />
+
+        <Button
+            android:id="@+id/btnConnect"
+            android:layout_width="match_parent"
+            android:layout_height="32dp"
+            android:layout_marginTop="5dp"
+            android:background="@drawable/control_button"
+            android:text="PAIR BLUETOOTH"
+            android:textColor="#EAF0F8"
+            android:textSize="9sp"
+            android:letterSpacing="0.05"
+            android:minHeight="0dp"
+            android:minWidth="0dp"
+            android:stateListAnimator="@null" />
+    </LinearLayout>
 
     <GridLayout
         android:id="@+id/dpadGrid"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentEnd="true"
-        android:layout_below="@id/btnR"
-        android:layout_marginTop="16dp"
+        android:layout_centerVertical="true"
+        android:layout_marginEnd="8dp"
         android:columnCount="3"
         android:rowCount="3">
 
-        <Space android:layout_width="55dp" android:layout_height="55dp" />
-        <Button android:id="@+id/btnUp" android:layout_width="55dp" android:layout_height="55dp" android:text="▲" />
-        <Space android:layout_width="55dp" android:layout_height="55dp" />
+        <Space android:layout_width="49dp" android:layout_height="49dp" />
+        <Button android:id="@+id/btnUp" android:layout_width="49dp" android:layout_height="49dp" android:text="▲" android:textSize="17sp" android:textColor="#EAF0F8" android:background="@drawable/control_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
+        <Space android:layout_width="49dp" android:layout_height="49dp" />
 
-        <Button android:id="@+id/btnLeft" android:layout_width="55dp" android:layout_height="55dp" android:text="◀" />
-        <Space android:layout_width="55dp" android:layout_height="55dp" />
-        <Button android:id="@+id/btnRight" android:layout_width="55dp" android:layout_height="55dp" android:text="▶" />
+        <Button android:id="@+id/btnLeft" android:layout_width="49dp" android:layout_height="49dp" android:text="◀" android:textSize="17sp" android:textColor="#EAF0F8" android:background="@drawable/control_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
+        <View android:layout_width="49dp" android:layout_height="49dp" android:background="@drawable/dpad_center" />
+        <Button android:id="@+id/btnRight" android:layout_width="49dp" android:layout_height="49dp" android:text="▶" android:textSize="17sp" android:textColor="#EAF0F8" android:background="@drawable/control_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
 
-        <Space android:layout_width="55dp" android:layout_height="55dp" />
-        <Button android:id="@+id/btnDown" android:layout_width="55dp" android:layout_height="55dp" android:text="▼" />
-        <Space android:layout_width="55dp" android:layout_height="55dp" />
+        <Space android:layout_width="49dp" android:layout_height="49dp" />
+        <Button android:id="@+id/btnDown" android:layout_width="49dp" android:layout_height="49dp" android:text="▼" android:textSize="17sp" android:textColor="#EAF0F8" android:background="@drawable/control_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
+        <Space android:layout_width="49dp" android:layout_height="49dp" />
     </GridLayout>
 
     <com.example.pspcontroller.AnalogStickView
         android:id="@+id/analogStick"
-        android:layout_width="130dp"
-        android:layout_height="130dp"
+        android:layout_width="116dp"
+        android:layout_height="116dp"
         android:layout_alignParentBottom="true"
         android:layout_toStartOf="@id/dpadGrid"
-        android:layout_marginEnd="20dp" />
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="2dp" />
 
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"
+        android:layout_marginBottom="5dp"
         android:orientation="horizontal">
 
         <Button
             android:id="@+id/btnSelect"
-            android:layout_width="85dp"
-            android:layout_height="40dp"
-            android:layout_marginEnd="12dp"
+            android:layout_width="76dp"
+            android:layout_height="34dp"
+            android:layout_marginEnd="9dp"
+            android:background="@drawable/control_button"
             android:text="SELECT"
-            android:textSize="11sp" />
+            android:textColor="#D5DEEA"
+            android:textSize="9sp"
+            android:minHeight="0dp"
+            android:minWidth="0dp"
+            android:stateListAnimator="@null" />
 
         <Button
             android:id="@+id/btnStart"
-            android:layout_width="85dp"
-            android:layout_height="40dp"
+            android:layout_width="76dp"
+            android:layout_height="34dp"
+            android:background="@drawable/control_button"
             android:text="START"
-            android:textSize="11sp" />
+            android:textColor="#D5DEEA"
+            android:textSize="9sp"
+            android:minHeight="0dp"
+            android:minWidth="0dp"
+            android:stateListAnimator="@null" />
     </LinearLayout>
 
     <GridLayout
+        android:id="@+id/actionGrid"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentStart="true"
         android:layout_centerVertical="true"
+        android:layout_marginStart="8dp"
         android:columnCount="3"
         android:rowCount="3">
 
-        <Space android:layout_width="60dp" android:layout_height="60dp" />
-        <Button android:id="@+id/btnTriangle" android:layout_width="60dp" android:layout_height="60dp" android:text="△" android:textSize="20sp" />
-        <Space android:layout_width="60dp" android:layout_height="60dp" />
+        <Space android:layout_width="56dp" android:layout_height="56dp" />
+        <Button android:id="@+id/btnTriangle" android:layout_width="56dp" android:layout_height="56dp" android:text="△" android:textSize="22sp" android:textColor="#71D8C5" android:background="@drawable/action_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
+        <Space android:layout_width="56dp" android:layout_height="56dp" />
 
-        <Button android:id="@+id/btnSquare" android:layout_width="60dp" android:layout_height="60dp" android:text="□" android:textSize="20sp" />
-        <Space android:layout_width="60dp" android:layout_height="60dp" />
-        <Button android:id="@+id/btnCircle" android:layout_width="60dp" android:layout_height="60dp" android:text="○" android:textSize="20sp" />
+        <Button android:id="@+id/btnSquare" android:layout_width="56dp" android:layout_height="56dp" android:text="□" android:textSize="22sp" android:textColor="#C19BFF" android:background="@drawable/action_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
+        <Space android:layout_width="56dp" android:layout_height="56dp" />
+        <Button android:id="@+id/btnCircle" android:layout_width="56dp" android:layout_height="56dp" android:text="○" android:textSize="22sp" android:textColor="#FF879B" android:background="@drawable/action_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
 
-        <Space android:layout_width="60dp" android:layout_height="60dp" />
-        <Button android:id="@+id/btnCross" android:layout_width="60dp" android:layout_height="60dp" android:text="✕" android:textSize="20sp" />
-        <Space android:layout_width="60dp" android:layout_height="60dp" />
+        <Space android:layout_width="56dp" android:layout_height="56dp" />
+        <Button android:id="@+id/btnCross" android:layout_width="56dp" android:layout_height="56dp" android:text="✕" android:textSize="22sp" android:textColor="#79B8FF" android:background="@drawable/action_button" android:minHeight="0dp" android:minWidth="0dp" android:stateListAnimator="@null" />
+        <Space android:layout_width="56dp" android:layout_height="56dp" />
     </GridLayout>
 
 </RelativeLayout>
