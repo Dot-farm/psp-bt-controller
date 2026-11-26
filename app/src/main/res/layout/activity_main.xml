@@ -41,7 +41,7 @@
         android:layout_marginTop="2dp"
         android:backgroundTint="#90CAF9"
         android:hint="Laptop IPv4 address"
-        android:inputType="numberDecimal"
+        android:inputType="textNoSuggestions"
         android:singleLine="true"
         android:textColor="#FFFFFF"
         android:textColorHint="#BBBBBB"
