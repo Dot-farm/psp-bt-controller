@@ -7,6 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
@@ -37,6 +39,15 @@ class MainActivity : AppCompatActivity() {
     @Volatile private var pcAddress: InetAddress? = null
     private var pcSocket: DatagramSocket? = null // accessed only on pcExecutor
     private val pcPort = 26760
+    private val pcHeartbeatHandler = Handler(Looper.getMainLooper())
+    private val pcHeartbeat = object : Runnable {
+        override fun run() {
+            if (pcConnected) {
+                sendPcState()
+                pcHeartbeatHandler.postDelayed(this, 500)
+            }
+        }
+    }
 
     private val hidDescriptor = byteArrayOf(
         0x05.toByte(), 0x01.toByte(),
@@ -231,6 +242,8 @@ class MainActivity : AppCompatActivity() {
 
         pcAddress = address
         pcConnected = true
+        pcHeartbeatHandler.removeCallbacks(pcHeartbeat)
+        pcHeartbeatHandler.postDelayed(pcHeartbeat, 500)
         pcExecutor.execute {
             try {
                 if (pcSocket == null || pcSocket?.isClosed == true) {
@@ -245,7 +258,9 @@ class MainActivity : AppCompatActivity() {
                 )
             } catch (error: Exception) {
                 pcConnected = false
+                pcHeartbeatHandler.removeCallbacks(pcHeartbeat)
                 runOnUiThread {
+                    findViewById<Button>(R.id.btnConnectPc).text = "Connect to PC"
                     Toast.makeText(
                         this@MainActivity,
                         "Could not send to laptop: ${error.message}",
@@ -261,6 +276,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun disconnectPc() {
         pcConnected = false
+        pcHeartbeatHandler.removeCallbacks(pcHeartbeat)
         pcExecutor.execute {
             try {
                 val address = pcAddress
@@ -305,6 +321,7 @@ class MainActivity : AppCompatActivity() {
                 sendPcPacket(packet, address)
             } catch (error: Exception) {
                 pcConnected = false
+                pcHeartbeatHandler.removeCallbacks(pcHeartbeat)
                 runOnUiThread {
                     findViewById<Button>(R.id.btnConnectPc).text = "Connect to PC"
                     Toast.makeText(
@@ -325,6 +342,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         pcConnected = false
+        pcHeartbeatHandler.removeCallbacks(pcHeartbeat)
         pcExecutor.execute {
             pcSocket?.close()
             pcSocket = null
