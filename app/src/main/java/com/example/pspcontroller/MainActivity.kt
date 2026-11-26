@@ -5,15 +5,19 @@ import android.annotation.SuppressLint
 import android.bluetooth.*
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
+import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import org.json.JSONObject
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetAddress
 import java.util.concurrent.Executors
 
 @SuppressLint("MissingPermission")
@@ -22,37 +26,43 @@ class MainActivity : AppCompatActivity() {
     private var hidDevice: BluetoothHidDevice? = null
     private var hostDevice: BluetoothDevice? = null
 
-    // Report state: [Buttons_Low_Byte, Buttons_High_Byte, Analog_X, Analog_Y]
+    // Report state: 12 buttons plus two signed analog axes.
     private var buttonState: Int = 0
     private var analogX: Byte = 0
     private var analogY: Byte = 0
 
-    // Standard HID Gamepad Descriptor (12 Buttons + X/Y Axis)
+    // Optional Wi-Fi connection to the Windows companion app.
+    private val pcExecutor = Executors.newSingleThreadExecutor()
+    @Volatile private var pcConnected = false
+    @Volatile private var pcAddress: InetAddress? = null
+    private var pcSocket: DatagramSocket? = null // accessed only on pcExecutor
+    private val pcPort = 26760
+
     private val hidDescriptor = byteArrayOf(
-        0x05.toByte(), 0x01.toByte(), // Usage Page (Generic Desktop)
-        0x09.toByte(), 0x05.toByte(), // Usage (Game Pad)
-        0xA1.toByte(), 0x01.toByte(), // Collection (Application)
-        0x85.toByte(), 0x01.toByte(), //   Report ID (1)
-        0x05.toByte(), 0x09.toByte(), //   Usage Page (Button)
-        0x19.toByte(), 0x01.toByte(), //   Usage Minimum (Button 1)
-        0x29.toByte(), 0x0C.toByte(), //   Usage Maximum (Button 12)
-        0x15.toByte(), 0x00.toByte(), //   Logical Minimum (0)
-        0x25.toByte(), 0x01.toByte(), //   Logical Maximum (1)
-        0x75.toByte(), 0x01.toByte(), //   Report Size (1 bit)
-        0x95.toByte(), 0x0C.toByte(), //   Report Count (12 buttons)
-        0x81.toByte(), 0x02.toByte(), //   Input (Data, Variable, Absolute)
-        0x75.toByte(), 0x04.toByte(), //   Report Size (4 bits padding)
-        0x95.toByte(), 0x01.toByte(), //   Report Count (1)
-        0x81.toByte(), 0x03.toByte(), //   Input (Constant)
-        0x05.toByte(), 0x01.toByte(), //   Usage Page (Generic Desktop)
-        0x09.toByte(), 0x30.toByte(), //   Usage (X)
-        0x09.toByte(), 0x31.toByte(), //   Usage (Y)
-        0x15.toByte(), 0x81.toByte(), //   Logical Minimum (-127)
-        0x25.toByte(), 0x7F.toByte(), //   Logical Maximum (127)
-        0x75.toByte(), 0x08.toByte(), //   Report Size (8 bits)
-        0x95.toByte(), 0x02.toByte(), //   Report Count (2 axes)
-        0x81.toByte(), 0x02.toByte(), //   Input (Data, Variable, Absolute)
-        0xC0.toByte()                 // End Collection
+        0x05.toByte(), 0x01.toByte(),
+        0x09.toByte(), 0x05.toByte(),
+        0xA1.toByte(), 0x01.toByte(),
+        0x85.toByte(), 0x01.toByte(),
+        0x05.toByte(), 0x09.toByte(),
+        0x19.toByte(), 0x01.toByte(),
+        0x29.toByte(), 0x0C.toByte(),
+        0x15.toByte(), 0x00.toByte(),
+        0x25.toByte(), 0x01.toByte(),
+        0x75.toByte(), 0x01.toByte(),
+        0x95.toByte(), 0x0C.toByte(),
+        0x81.toByte(), 0x02.toByte(),
+        0x75.toByte(), 0x04.toByte(),
+        0x95.toByte(), 0x01.toByte(),
+        0x81.toByte(), 0x03.toByte(),
+        0x05.toByte(), 0x01.toByte(),
+        0x09.toByte(), 0x30.toByte(),
+        0x09.toByte(), 0x31.toByte(),
+        0x15.toByte(), 0x81.toByte(),
+        0x25.toByte(), 0x7F.toByte(),
+        0x75.toByte(), 0x08.toByte(),
+        0x95.toByte(), 0x02.toByte(),
+        0x81.toByte(), 0x02.toByte(),
+        0xC0.toByte()
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,6 +78,14 @@ class MainActivity : AppCompatActivity() {
                 putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
             }
             startActivity(discoverableIntent)
+        }
+
+        findViewById<Button>(R.id.btnConnectPc).setOnClickListener {
+            if (pcConnected) {
+                disconnectPc()
+            } else {
+                connectPc()
+            }
         }
     }
 
@@ -100,7 +118,9 @@ class MainActivity : AppCompatActivity() {
                         BluetoothHidDevice.SUBCLASS1_COMBO,
                         hidDescriptor
                     )
-                    hidDevice?.registerApp(sdp, null, null, Executors.newSingleThreadExecutor(), hidCallback)
+                    hidDevice?.registerApp(
+                        sdp, null, null, Executors.newSingleThreadExecutor(), hidCallback
+                    )
                 }
             }
 
@@ -113,7 +133,13 @@ class MainActivity : AppCompatActivity() {
     private val hidCallback = object : BluetoothHidDevice.Callback() {
         override fun onAppStatusChanged(pluggedDevice: BluetoothDevice?, registered: Boolean) {
             runOnUiThread {
-                if (registered) Toast.makeText(this@MainActivity, "Gamepad Ready! Pair from target device.", Toast.LENGTH_SHORT).show()
+                if (registered) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Bluetooth gamepad ready to pair",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
         }
 
@@ -121,50 +147,57 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 if (state == BluetoothProfile.STATE_CONNECTED) {
                     hostDevice = device
-                    Toast.makeText(this@MainActivity, "Connected to ${device.name}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Connected to ${device.name}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    sendHidReport()
                 } else if (state == BluetoothProfile.STATE_DISCONNECTED) {
                     hostDevice = null
-                    Toast.makeText(this@MainActivity, "Disconnected", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@MainActivity, "Bluetooth disconnected", Toast.LENGTH_SHORT).show()
                 }
             }
         }
     }
 
     private fun setupButtons() {
-        // Map each button to a bit position (0 to 11)
-        bindButton(R.id.btnCross, 0)    // Button 1
-        bindButton(R.id.btnCircle, 1)   // Button 2
-        bindButton(R.id.btnSquare, 2)   // Button 3
-        bindButton(R.id.btnTriangle, 3) // Button 4
-        bindButton(R.id.btnL, 4)        // Button 5
-        bindButton(R.id.btnR, 5)        // Button 6
-        bindButton(R.id.btnSelect, 6)   // Button 7
-        bindButton(R.id.btnStart, 7)    // Button 8
-        bindButton(R.id.btnUp, 8)       // Button 9
-        bindButton(R.id.btnDown, 9)     // Button 10
-        bindButton(R.id.btnLeft, 10)    // Button 11
-        bindButton(R.id.btnRight, 11)   // Button 12
+        bindButton(R.id.btnCross, 0)
+        bindButton(R.id.btnCircle, 1)
+        bindButton(R.id.btnSquare, 2)
+        bindButton(R.id.btnTriangle, 3)
+        bindButton(R.id.btnL, 4)
+        bindButton(R.id.btnR, 5)
+        bindButton(R.id.btnSelect, 6)
+        bindButton(R.id.btnStart, 7)
+        bindButton(R.id.btnUp, 8)
+        bindButton(R.id.btnDown, 9)
+        bindButton(R.id.btnLeft, 10)
+        bindButton(R.id.btnRight, 11)
 
         val analog = findViewById<AnalogStickView>(R.id.analogStick)
         analog.onMoveListener = { x, y ->
             analogX = x
             analogY = y
             sendHidReport()
+            sendPcState()
         }
     }
 
     private fun bindButton(viewId: Int, bitIndex: Int) {
-        findViewById<View>(viewId).setOnTouchListener { v, event ->
+        findViewById<View>(viewId).setOnTouchListener { view, event ->
             when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    v.isPressed = true
+                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                    view.isPressed = true
                     buttonState = buttonState or (1 shl bitIndex)
                     sendHidReport()
+                    sendPcState()
                 }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    v.isPressed = false
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_POINTER_UP -> {
+                    view.isPressed = false
                     buttonState = buttonState and (1 shl bitIndex).inv()
                     sendHidReport()
+                    sendPcState()
                 }
             }
             true
@@ -180,5 +213,123 @@ class MainActivity : AppCompatActivity() {
             analogY
         )
         hidDevice?.sendReport(device, 1, report)
+    }
+
+    private fun connectPc() {
+        val ipText = findViewById<EditText>(R.id.inputPcIp).text.toString().trim()
+        if (ipText.isEmpty()) {
+            Toast.makeText(this, "Enter your laptop's local IPv4 address", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val address = try {
+            InetAddress.getByName(ipText)
+        } catch (_: Exception) {
+            Toast.makeText(this, "That IP address is not valid", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        pcAddress = address
+        pcConnected = true
+        pcExecutor.execute {
+            try {
+                if (pcSocket == null || pcSocket?.isClosed == true) {
+                    pcSocket = DatagramSocket()
+                }
+                sendPcPacket(
+                    JSONObject()
+                        .put("type", "hello")
+                        .put("app", "PSP BT Gamepad")
+                        .toString(),
+                    address
+                )
+            } catch (error: Exception) {
+                pcConnected = false
+                runOnUiThread {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Could not send to laptop: ${error.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+
+        findViewById<Button>(R.id.btnConnectPc).text = "Disconnect PC"
+        Toast.makeText(this, "Sending to $ipText:$pcPort", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun disconnectPc() {
+        pcConnected = false
+        pcExecutor.execute {
+            try {
+                val address = pcAddress
+                if (address != null && pcSocket != null && pcSocket?.isClosed == false) {
+                    sendPcPacket(
+                        JSONObject()
+                            .put("type", "state")
+                            .put("buttons", 0)
+                            .put("x", 0)
+                            .put("y", 0)
+                            .toString(),
+                        address
+                    )
+                }
+            } catch (_: Exception) {
+                // Closing the socket below still releases the local connection.
+            } finally {
+                pcSocket?.close()
+                pcSocket = null
+            }
+        }
+        pcAddress = null
+        findViewById<Button>(R.id.btnConnectPc).text = "Connect to PC"
+        Toast.makeText(this, "PC connection stopped", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun sendPcState() {
+        if (!pcConnected) return
+        val address = pcAddress ?: return
+        val packet = JSONObject()
+            .put("type", "state")
+            .put("buttons", buttonState)
+            .put("x", analogX.toInt())
+            .put("y", analogY.toInt())
+            .toString()
+
+        pcExecutor.execute {
+            try {
+                if (pcSocket == null || pcSocket?.isClosed == true) {
+                    pcSocket = DatagramSocket()
+                }
+                sendPcPacket(packet, address)
+            } catch (error: Exception) {
+                pcConnected = false
+                runOnUiThread {
+                    findViewById<Button>(R.id.btnConnectPc).text = "Connect to PC"
+                    Toast.makeText(
+                        this@MainActivity,
+                        "PC send failed: ${error.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+
+    private fun sendPcPacket(message: String, address: InetAddress) {
+        val bytes = message.toByteArray(Charsets.UTF_8)
+        val packet = DatagramPacket(bytes, bytes.size, address, pcPort)
+        pcSocket?.send(packet)
+    }
+
+    override fun onDestroy() {
+        pcConnected = false
+        pcExecutor.execute {
+            pcSocket?.close()
+            pcSocket = null
+        }
+        pcExecutor.shutdown()
+        super.onDestroy()
     }
 }
