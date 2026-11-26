@@ -14,6 +14,7 @@ The Android app is designed in landscape orientation. The face buttons are on th
 - On-screen Cross, Circle, Square and Triangle buttons.
 - L and R shoulder buttons, plus Select and Start.
 - Four-way D-pad and a spring-return analog stick.
+- On-device layout editor: drag each control, resize it, save changes automatically, and restore the default layout.
 - Local Wi-Fi connection to the Windows companion receiver.
 - Six-digit pairing PIN generated when the receiver starts.
 - Virtual Xbox 360 controller output through vgamepad.
@@ -150,6 +151,18 @@ The receiver listens on UDP port **26760**. The PIN is a basic local-network pai
 | Analog stick | X/Y axes | Left analog stick |
 
 The Windows receiver maps the Android screen's downward-positive Y axis to XInput's upward-positive Y axis.
+
+## Customise the controller layout
+
+The Android app includes a built-in layout editor:
+
+1. Tap **Edit Layout** on the controller screen.
+2. Drag any face button, shoulder button, D-pad direction, Start/Select button or analog stick to reposition it.
+3. Tap a control to select it. Use **−** and **+** in the editor bar to make that control smaller or larger.
+4. Tap **Done** to return to normal play.
+5. Tap **Reset** at any time to restore every control to its original position and size.
+
+Layout changes are saved on the phone automatically and remain after closing and reopening the app. Each control can be adjusted independently. The editor changes only the on-screen layout; it does not change the button mapping sent to Bluetooth or the Windows receiver.
 
 ## Configure PPSSPP
 
