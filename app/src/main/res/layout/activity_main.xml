@@ -47,11 +47,26 @@
         android:textColorHint="#BBBBBB"
         android:textSize="13sp" />
 
+    <EditText
+        android:id="@+id/inputPcPin"
+        android:layout_width="190dp"
+        android:layout_height="42dp"
+        android:layout_below="@id/inputPcIp"
+        android:layout_centerHorizontal="true"
+        android:backgroundTint="#90CAF9"
+        android:hint="6-digit PC PIN"
+        android:inputType="number"
+        android:maxLength="6"
+        android:singleLine="true"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#BBBBBB"
+        android:textSize="13sp" />
+
     <Button
         android:id="@+id/btnConnectPc"
         android:layout_width="190dp"
         android:layout_height="42dp"
-        android:layout_below="@id/inputPcIp"
+        android:layout_below="@id/inputPcPin"
         android:layout_centerHorizontal="true"
         android:text="Connect to PC"
         android:textSize="12sp" />
