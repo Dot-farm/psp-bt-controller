@@ -11,6 +11,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
@@ -96,6 +97,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        disableChildClipping(findViewById(android.R.id.content))
 
         requestBluetoothPermissions()
         setupButtons()
@@ -223,19 +225,40 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun bindButton(viewId: Int, bitIndex: Int) {
+        var activePointerId = MotionEvent.INVALID_POINTER_ID
         findViewById<View>(viewId).setOnTouchListener { view, event ->
             if (isLayoutEditing) {
                 handleLayoutTouch(view, event)
                 true
             } else {
                 when (event.actionMasked) {
-                    MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                    MotionEvent.ACTION_DOWN -> {
+                        activePointerId = event.getPointerId(event.actionIndex)
                         view.isPressed = true
                         buttonState = buttonState or (1 shl bitIndex)
                         sendHidReport()
                         sendPcState()
                     }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_POINTER_UP -> {
+                    MotionEvent.ACTION_POINTER_DOWN -> {
+                        if (activePointerId == MotionEvent.INVALID_POINTER_ID) {
+                            activePointerId = event.getPointerId(event.actionIndex)
+                            view.isPressed = true
+                            buttonState = buttonState or (1 shl bitIndex)
+                            sendHidReport()
+                            sendPcState()
+                        }
+                    }
+                    MotionEvent.ACTION_POINTER_UP -> {
+                        if (event.getPointerId(event.actionIndex) == activePointerId) {
+                            activePointerId = MotionEvent.INVALID_POINTER_ID
+                            view.isPressed = false
+                            buttonState = buttonState and (1 shl bitIndex).inv()
+                            sendHidReport()
+                            sendPcState()
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        activePointerId = MotionEvent.INVALID_POINTER_ID
                         view.isPressed = false
                         buttonState = buttonState and (1 shl bitIndex).inv()
                         sendHidReport()
@@ -244,6 +267,15 @@ class MainActivity : AppCompatActivity() {
                 }
                 true
             }
+        }
+    }
+
+    private fun disableChildClipping(group: ViewGroup) {
+        group.clipChildren = false
+        group.clipToPadding = false
+        for (index in 0 until group.childCount) {
+            val child = group.getChildAt(index)
+            if (child is ViewGroup) disableChildClipping(child)
         }
     }
 
